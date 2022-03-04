@@ -1,0 +1,137 @@
+html {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    position: fixed;
+}
+
+body {
+    height: 100%;
+}
+
+#app {
+    height: 100%;
+}
+
+.geotoolkit-demo-wrapper {
+    height: 100%;
+}
+
+#geotoolkit-main-demo-nav {
+    z-index: 1;
+}
+
+div.demotitle {
+    color: #757575;
+    font-size: 18px;
+    font-family: "Roboto", Arial, sans-serif;
+    text-align: center;
+}
+
+div.geotoolkit-demo {
+    height: 100%;
+}
+
+div.geotoolkit-plot-host {
+    position: inherit;
+    height: inherit;
+}
+
+canvas.geotoolkit-plot {
+    height: 100%;
+    width: 100%;
+    max-width: 100%;
+    touch-action: none;
+}
+
+.toolbar-mobile-open {
+    background: #ffffff;
+}
+
+.tollbar-mobile-closed {
+    overflow: hidden;
+}
+
+div.cg-tooltip-container {
+    padding: 2px 12px 3px 7px;
+    margin-left: 5px;
+    background: #f6f6f6;
+    background: -webkit-gradient(
+            linear,
+            0% 0%,
+            0% 100%,
+            from(#f7f7f7),
+            to(#f8f8f8),
+            color-stop(.5, #e3e3e3)
+    );
+    border: solid 1px gray;
+    opacity: 0.8;
+    text-align: left;
+    color: #494949;
+    display: table;
+}
+
+div.alert-danger {
+    position: absolute;
+    top: 18%;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 20px;
+}
+
+.int-logo-header {
+    margin: 8px;
+    width: auto;
+    height: auto;
+    max-height: 48px;
+    float: right;
+}
+
+.outlined {
+    background-color: rgba(155, 155, 155, 0.5);
+}
+
+.nav-link.disabled > span {
+    color: gray;
+}
+
+.nav-item:hover, .dropdown-item:hover {
+    background-color: rgba(155, 155, 155, 0.25);
+}
+
+.outlined.nav-item:hover, .outlined.dropdown-item:hover {
+    background-color: rgba(155, 155, 155, 0.75);
+}
+
+.selected {
+    background-color: #d5d5d5
+}
+
+.dialog {
+    font-size: 13px;
+}
+
+.dialog th, .dialog td {
+    font-weight: inherit;
+    vertical-align: middle;
+    padding: 8px;
+}
+
+.dialog .table-header {
+    font-weight: bold;
+    text-align: center;
+}
+
+.color-rectangle {
+    border-radius: 10px;
+    height: 40px;
+    width: 40px;
+    border: 1px;
+    display: inline-block;
+    float: left;
+}
+
+.color-picker.caret {
+    display: none
+}

@@ -1,0 +1,20 @@
+export default {
+    SidebarToggle: 'sidebar-toggle',
+    OpenLas: 'open-las',
+    ExportToPDF: 'export-to-pdf',
+    ZoomIn: 'zoom-in',
+    ZoomOut: 'zoom-out',
+    ResetZoom: 'reset-zoom',
+    FitToHeight: 'fit-to-height',
+    AddTrack: 'add-track',
+    CurveDragAndDrop: 'curve-drag-and-drop',
+    SelectionDelete: 'selection-delete',
+    ShowProperties: 'show-properties',
+    NavigationToggle: 'navigation-toggle',
+    TemplateExport: 'template-export',
+    TemplateImport: 'template-import',
+    MoveVisualUp: 'move-visual-up',
+    MoveVisualDown: 'move-visual-down',
+    MoveVisualTop: 'move-visual-top',
+    MoveVisualBottom: 'move-visual-bottom'
+};

@@ -1,0 +1,266 @@
+/* Default Toolbar CSS */
+/* toolbar container for canvas + all toolbars */
+.cg-toolbar-container {
+    background-color: white;
+    position: relative;
+}
+.cg-toolbar-container > canvas {
+    margin: 0;
+}
+/* toolbar classes: */
+.cg-toolbar-left, .cg-toolbar-top, .cg-toolbar-right, .cg-toolbar-bottom {
+    display: flex;
+    pointer-events: none;
+    z-index: 2
+}
+
+/* toolbar directions: */
+.cg-toolbar-left, .cg-toolbar-right {
+    flex-direction: column;
+}
+
+.cg-toolbar-top, .cg-toolbar-bottom {
+    flex-direction: row;
+}
+
+/* snap items to the right/bottom: */
+.cg-toolbar-right, .cg-toolbar-bottom {
+    align-items: flex-end;
+}
+
+/* group of buttons class: */
+.cg-toolbar-group {
+    display: flex;
+    flex-direction: inherit;
+    align-items: inherit;
+    border-radius: inherit;
+}
+
+/* gap between groups */
+.cg-toolbar-left .cg-toolbar-group + .cg-toolbar-group,
+.cg-toolbar-right .cg-toolbar-group + .cg-toolbar-group {
+    margin-top: 15px;
+}
+
+.cg-toolbar-top .cg-toolbar-group + .cg-toolbar-group,
+.cg-toolbar-bottom .cg-toolbar-group + .cg-toolbar-group {
+    margin-left: 15px;
+}
+
+/* single button class: */
+.cg-toolbar-button {
+    height: auto;
+    text-align: center;
+    cursor: pointer;
+    color: black;
+    box-shadow: 0 2px 5px 0 rgba(0, 0, 0, 0.3);
+    pointer-events: all;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+/* checkbox class: */
+.cg-toolbar-checkbox {
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+/* checkbox inner text class: */
+.cg-toolbar-checkbox-text {
+    display: inline-block;
+}
+
+span + .cg-toolbar-checkbox-text {
+    margin-left: 3px;
+}
+
+/* dropdown button class: */
+.cg-toolbar-dropdown {
+    display: flex;
+    border-radius: inherit;
+}
+
+/* dropdown directions: */
+.cg-toolbar-left .cg-toolbar-dropdown {
+    flex-direction: row;
+}
+
+.cg-toolbar-top .cg-toolbar-dropdown {
+    flex-direction: column;
+}
+
+.cg-toolbar-right .cg-toolbar-dropdown {
+    flex-direction: row-reverse;
+}
+
+.cg-toolbar-bottom .cg-toolbar-dropdown {
+    flex-direction: column-reverse;
+}
+
+/* first (dropdown) button inherits size from dropdown: */
+.cg-toolbar-dropdown > :first-child {
+    width: inherit;
+    min-width: inherit;
+    height: inherit;
+    min-height: inherit;
+    line-height: inherit;
+}
+
+/* dropdown over the other buttons: */
+.cg-toolbar-dropdown > :not(:first-child) {
+    z-index: 1;
+}
+
+/* hide dropdown buttons if not hover: */
+.cg-toolbar-dropdown:not(:hover):not(.cg-toolbar-checked) > :not(:first-child) {
+    display: none;
+}
+
+/* checked style for checkboxes (doesn't affect dropdowns): */
+.cg-toolbar-checked:not(.cg-toolbar-dropdown) {
+    background-color: rgb(0, 195, 0) !important;
+    color: white;
+}
+
+/* buttons highlight on hover: */
+.cg-toolbar-button.cg-toolbar-checked:hover > :not(.cg-toolbar-button),
+.cg-toolbar-button:not(.cg-toolbar-checked):not(:hover) > :not(.cg-toolbar-button) {
+    opacity: 0.7;
+}
+
+/* gap between buttons: */
+.cg-toolbar-gap {
+    pointer-events: none;
+    cursor: pointer;
+}
+
+.cg-toolbar-top .cg-toolbar-dropdown > .cg-toolbar-gap, .cg-toolbar-bottom .cg-toolbar-dropdown > .cg-toolbar-gap {
+    pointer-events: all;
+    width: 100% !important;
+}
+
+.cg-toolbar-left .cg-toolbar-dropdown > .cg-toolbar-gap, .cg-toolbar-right .cg-toolbar-dropdown > .cg-toolbar-gap {
+    pointer-events: all;
+    height: 100% !important;
+}
+
+/* buttons border-radius (inherit from toolbar defined by user): */
+.cg-toolbar-left .cg-toolbar-dropdown:first-child > :first-child,
+.cg-toolbar-right .cg-toolbar-dropdown:first-child > :first-child,
+.cg-toolbar-bottom .cg-toolbar-dropdown > :last-child,
+.cg-toolbar-left .cg-toolbar-group > :first-child,
+.cg-toolbar-right .cg-toolbar-group > :first-child {
+    border-top-left-radius: inherit;
+    border-top-right-radius: inherit;
+}
+
+.cg-toolbar-left .cg-toolbar-dropdown:last-child > :first-child,
+.cg-toolbar-right .cg-toolbar-dropdown:last-child > :first-child,
+.cg-toolbar-top .cg-toolbar-dropdown > :last-child,
+.cg-toolbar-left .cg-toolbar-group > :last-child,
+.cg-toolbar-right .cg-toolbar-group > :last-child {
+    border-bottom-left-radius: inherit;
+    border-bottom-right-radius: inherit;
+}
+
+.cg-toolbar-top .cg-toolbar-dropdown:first-child > :first-child,
+.cg-toolbar-bottom .cg-toolbar-dropdown:first-child > :first-child,
+.cg-toolbar-right .cg-toolbar-dropdown > :last-child,
+.cg-toolbar-top .cg-toolbar-group > :first-child,
+.cg-toolbar-bottom .cg-toolbar-group > :first-child {
+    border-top-left-radius: inherit;
+    border-bottom-left-radius: inherit;
+}
+
+.cg-toolbar-top .cg-toolbar-dropdown:last-child > :first-child,
+.cg-toolbar-bottom .cg-toolbar-dropdown:last-child > :first-child,
+.cg-toolbar-left .cg-toolbar-dropdown > :last-child,
+.cg-toolbar-top .cg-toolbar-group > :last-child,
+.cg-toolbar-bottom .cg-toolbar-group > :last-child {
+    border-top-right-radius: inherit;
+    border-bottom-right-radius: inherit;
+}
+
+.cg-toolbar-left .cg-toolbar-dropdown.cg-toolbar-checked > :first-child,
+.cg-toolbar-left .cg-toolbar-dropdown:hover > :first-child {
+    border-top-right-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+}
+
+.cg-toolbar-right .cg-toolbar-dropdown.cg-toolbar-checked > :first-child,
+.cg-toolbar-right .cg-toolbar-dropdown:hover > :first-child {
+    border-top-left-radius: 0 !important;
+    border-bottom-left-radius: 0 !important;
+}
+
+.cg-toolbar-top .cg-toolbar-dropdown.cg-toolbar-checked > :first-child,
+.cg-toolbar-top .cg-toolbar-dropdown:hover > :first-child {
+    border-bottom-left-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+}
+
+.cg-toolbar-bottom .cg-toolbar-dropdown.cg-toolbar-checked > :first-child,
+.cg-toolbar-bottom .cg-toolbar-dropdown:hover > :first-child {
+    border-top-left-radius: 0 !important;
+    border-top-right-radius: 0 !important;
+}
+
+/* maplayers dropdown: */
+.cg-toolbar-maplayers {
+    border-radius: inherit;
+    font-size: 16px;
+}
+
+.cg-toolbar-maplayers > .cg-toolbar-gap {
+    pointer-events: all;
+    width: 100% !important;
+}
+
+.cg-toolbar-maplayers > .cg-toolbar-checkbox {
+    text-align: left;
+}
+
+/* maplayers subscript index */
+.cg-toolbar-maplayers {
+    counter-reset: layer-index;
+}
+
+/* maplayers dropdown border-radius: */
+.cg-toolbar-left .cg-toolbar-maplayers > :first-child {
+    border-top-right-radius: inherit;
+}
+
+.cg-toolbar-right .cg-toolbar-maplayers > :first-child {
+    border-top-left-radius: inherit;
+}
+
+.cg-toolbar-top .cg-toolbar-maplayers > :first-child {
+    border-top-right-radius: inherit;
+}
+
+.cg-toolbar-bottom .cg-toolbar-maplayers > :last-child {
+    border-bottom-right-radius: inherit;
+}
+
+.cg-toolbar-top .cg-toolbar-maplayers > :last-child {
+    border-bottom-left-radius: inherit;
+    border-bottom-right-radius: inherit;
+}
+
+.cg-toolbar-left .cg-toolbar-maplayers > :last-child,
+.cg-toolbar-right .cg-toolbar-maplayers > :last-child:not(:first-child) {
+    border-bottom-right-radius: inherit;
+}
+
+.cg-toolbar-left .cg-toolbar-maplayers > :last-child:not(:first-child),
+.cg-toolbar-right .cg-toolbar-maplayers > :last-child {
+    border-bottom-left-radius: inherit;
+}
+
+.cg-toolbar-bottom .cg-toolbar-maplayers > :first-child {
+    border-top-left-radius: inherit;
+    border-top-right-radius: inherit;
+}

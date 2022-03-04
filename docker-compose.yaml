@@ -1,0 +1,25 @@
+version: '3.6'
+
+services:
+  awslas_server:
+    container_name: awslas_server
+    build:
+      context: ./client/
+      args:
+        NPM_TOKEN: ${NPM_TOKEN}
+    env_file:
+      - .env
+    command: npm run start:dev
+    network_mode: service:awslas_client
+    depends_on:
+      - awslas_client
+  awslas_client:
+    ports:
+      - "3000:3000"
+      - "80:80"
+    container_name: awslas_client
+    build:
+      context: ./server/
+      args:
+        NPM_TOKEN: ${NPM_TOKEN}
+        SERVER: ${SERVER}

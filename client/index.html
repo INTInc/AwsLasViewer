@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>INT AWS LAS LogViewer</title>
+    <link rel="SHORTCUT ICON" href="http://www.int.com/favicon.ico"/>
+    <script>
+        // https://stackoverflow.com/questions/43503964/onkeydown-event-not-working-on-divs-in-react
+        HTMLElement.prototype.addEventListener = function (origFn) {
+            return function (...args) {
+                if (!document.hasFocus()) {
+                    this.focus({
+                        preventScroll: true
+                    });
+                    this.tabIndex = 0;
+                }
+                return origFn.call(this, ...args);
+            };
+        }(HTMLElement.prototype.addEventListener);
+    </script>
+</head>
+<body>
+    <div id="app"></div>
+    <script src="dist/bundle.js"></script>
+</body>
+</html>
