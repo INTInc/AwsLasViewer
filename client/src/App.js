@@ -46,11 +46,14 @@ import {Annotation} from '@int/geotoolkit/widgets/overlays/Annotation';
 import {LabelPositions as CrossHairLabelPositions} from '@int/geotoolkit/controls/tools/CrossHair';
 import VisualZIndexDirections from './VisualZIndexDirections';
 import {BindingFunction} from './data/awslassource';
+import {Layer} from '@int/geotoolkit/scene/Layer';
 
 const DEFAULT_HIGHLIGHT_CLASS = 'highlight';
 const SAVE_TEMPLATE_TIMEOUT = 2000;
 const templatePath = '/api/v1/templates/template.json';
 const urlTemplate = new URL(templatePath, process.env.SERVER);
+const topsPath = '/api/v1/tops/tops.json';
+const urlTops = new URL(topsPath, process.env.SERVER);
 const DEFAULT_DARK_COLOR = '#757575';
 const DEFAULT_LIGHT_COLOR = 'rgba(255, 255, 255, 0.85)';
 const DEFAULT_CROSS_LINE_STYLE = {
@@ -167,7 +170,7 @@ export class LogDisplay {
         this._curvesList = [];
         this._selectedCurves = [];
         this._curveBinding = new BindingFunction();
-
+        this._topsLayer = new Layer(); 
         this._widget = this.createWellLogWidget();
         this._navigationWidget = this.createNavigationWidget();
         this._navigationTool = new Navigation({
@@ -374,7 +377,8 @@ export class LogDisplay {
                 return node instanceof LogAbstractVisual || node instanceof LogAxis;
             }
         }).setLayoutStyle({'left': 0, 'top': 0, 'right': 0, 'bottom': 0});
-
+        
+        wellLogWidget.getTrackContainer().addLayer(this._topsLayer);
         this.configureHeaders(wellLogWidget);
         // Add data binding for curve
         wellLogWidget.getDataBinding()
@@ -386,10 +390,8 @@ export class LogDisplay {
                 if (this._widget != null && !this._widget.isDisposed()) {
                     this.calculateTracksCountWithoutIndexTrack();
                 }
+                this.loadTops(this._widget, urlTops);
             });
-
-       // wellLogWidget.setDepthLimits(4500, 5800);
-
         // Tools
         wellLogWidget.getToolByName('cross-hair')
             .setEnabled(true)
@@ -479,7 +481,35 @@ export class LogDisplay {
             }
         });
     }
-
+    loadTops (widget, url) {
+        return HttpClient.getInstance().getHttp().get(url, {
+            'responseType': 'json',
+            transformResponse: function (response) {
+                return response.data;
+            }
+        }).then((topsData) => {
+            if (widget != null && !widget.isDisposed()) {
+                const tops = topsData['tops'];
+                this._topsLayer.clearChildren(true);
+                for (let i=0; i < tops.length; ++i) {
+                    const top = tops[i];
+                    const marker = new LogMarker(top['depth']);
+                    marker.setName(top['name']);
+                    marker.setLineStyle({'color': top['color'], 'width': 2});
+                    marker.setTextStyle({
+                        'color': top['color'],
+                        'alignment': 'left',
+                        'font': '12px sans-serif'
+                    });
+                    marker.setNameLabel(top['name']);
+                    marker.setDepthLabel(top['depth']);
+                    marker.setNameLabelPosition(AnchorType.TopCenter);
+                    marker.setDepthLabelPosition(AnchorType.BottomCenter);
+                    this._topsLayer.addChild(marker)
+                }
+            }
+        });
+    }
     /**
      * Adjust widget visible limits
      */

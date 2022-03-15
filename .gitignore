@@ -1,8 +1,12 @@
 # See http://help.github.com/ignore-files/ for more about ignoring files.
 
 # server
-server/data/*
+server/data/las/*.las
 server/node_modules
+
+# client
+client/dist
+client/node_modules
 
 # dependencies
 /node_modules
