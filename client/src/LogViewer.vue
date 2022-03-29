@@ -171,7 +171,8 @@ export default {
             isNavigationMode: true,
             isHorizontalOrientation: false,
             activeTool: null,
-            showExportDialog: false
+            showExportDialog: false,
+            wellLogNeedsUpdate: true,
         };
     },
     computed: {
@@ -191,10 +192,17 @@ export default {
             this.resize();
             this.componentDidResize = true;
         }
+
+        if (this.wellLogNeedsUpdate) {
+            wellLogWidget.fitToHeight();
+            wellLogWidget.canLoadData = true;
+            wellLogWidget.loadData();
+            this.wellLogNeedsUpdate = false;
+        }
     },
     mounted () {
         window.addEventListener('resize', this.resize);
-        AwsLasSource.create('by11.las').then((data) => {
+        AwsLasSource.create('sample.las').then((data) => {
             wellLogWidget = new LogDisplay({
                 'data': data,
                 'host': this.$refs.host.native,

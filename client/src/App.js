@@ -47,6 +47,7 @@ import {LabelPositions as CrossHairLabelPositions} from '@int/geotoolkit/control
 import VisualZIndexDirections from './VisualZIndexDirections';
 import {BindingFunction} from './data/awslassource';
 import {Layer} from '@int/geotoolkit/scene/Layer';
+import {debounce} from "./utils/debounce.js";
 
 const DEFAULT_HIGHLIGHT_CLASS = 'highlight';
 const SAVE_TEMPLATE_TIMEOUT = 2000;
@@ -205,7 +206,6 @@ export class LogDisplay {
             'autoRootBounds': true
         });
         this._plot.setSize(this._canvas.clientWidth, this._canvas.clientHeight);
-
         this._navigationWidget.fitToHeight();
         this._navigationTool.setVisibleDepthLimits(this._widget.getVisibleDepthLimits());
 
@@ -217,11 +217,36 @@ export class LogDisplay {
         this._widget.on(Events.DepthRangeChanged, this.setDepthLimits.bind(this));
         this._widget.on(Events.VisibleDepthLimitsChanged, this.setVisibleDepthLimits.bind(this));
 
+        this._canLoadData = false;
+        this._widget.on(Events.VisibleDepthLimitsChanged, this.loadData.bind(this));
+
         this._plot.getTool()
             .add([this._widget.getTool(), this._navigationWidget.getTool()]);
 
         this._widget.setCss(new CssStyle(widgetCssStyle));
         this.updateCurvesList();
+
+        this._firstLoad = true;
+        this._loadData = function () {
+          const depthLimits = this._widget.getVisibleDepthLimits();
+          const deviceLimits = this._widget.getVisibleDeviceLimits()
+          // const scale = Math.round(Math.abs(this._widget.getTrackContainer().getSceneTransform().getScaleY()) * 1000) / 1000;
+          const step = (depthLimits.getHigh() - depthLimits.getLow()) / deviceLimits.getHeight() * 2;
+          this._data.dataset.fetch(depthLimits, step);
+        };
+    }
+
+    set canLoadData(value) {
+        this._canLoadData = value;
+    }
+
+    loadData() {
+        if (!this._canLoadData) return;
+        this._loadData();
+        if (this._firstLoad) {
+          this._firstLoad = false;
+          this._loadData = debounce(this._loadData, 500);
+        }
     }
 
     /**

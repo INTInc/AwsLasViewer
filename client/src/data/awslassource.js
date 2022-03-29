@@ -7,16 +7,19 @@ import {DataTable} from '@int/geotoolkit/data/DataTable';
 import {NumericalDataSeries} from '@int/geotoolkit/data/NumericalDataSeries';
 import {Range} from '@int/geotoolkit/util/Range';
 import {MathUtil} from '@int/geotoolkit/util/MathUtil';
+import {DataSet} from '@int/geotoolkit/data/DataSet';
+import {Events as DataEvents} from '@int/geotoolkit/data/Events';
 
 const lasPath = '/api/v1/las';
 const serverUrl = new URL(lasPath, process.env.SERVER);
 const http = HttpClient.getInstance().getHttp();
+let curvesLimits = null;
 /**
  * Get las info for the current LAS
  * @param {string} file file name/path
  * @returns {Promise}
  */
- const getLasInfo = async function (file) {
+const getLasInfo = async function (file) {
     const url = serverUrl + '/' + encodeURIComponent(file);
     return http.get(url, {
         'responseType': 'json',
@@ -25,10 +28,22 @@ const http = HttpClient.getInstance().getHttp();
         }
     });
 };
-const getCurvesData = async function (file, curves) {
+const getCurvesLimits = async function (file) {
+    const url = serverUrl + '/' + encodeURIComponent(file) + '/limits';
+    return http.get(url, {
+        'responseType': 'json',
+        'transformResponse': function (response) {
+            return response['data'];
+        }
+    });
+};
+const getCurvesData = async function (file, curves, limits, step, indexName) {
     const url = serverUrl + '/' + encodeURIComponent(file)+'/curves';
     const data = JSON.stringify({
-        'curves': curves
+        'curves': curves,
+        'limits': [limits.getLow(), limits.getHigh()],
+        'step': step,
+        'indexName': indexName,
     });
     return http.post(url, data, {
         'headers': {'Content-Type': 'application/json'},
@@ -50,12 +65,16 @@ export class BindingFunction {
         try {
             const source = await data.getCurveSource(id);
             if (source != null) {
-                const limits = MathUtil.calculateNeatLimits(source.getMinValue(), source.getMaxValue());
                 if (curve.isCustomLimits() === true) {
                     curve.setData(source, false, true);
                 } else {
-                    curve.setData(source, true, true)
-                        .setNormalizationLimits(limits.getLow(), limits.getHigh());
+                    curve.setData(source, true, true);
+                    if (curvesLimits != null) {
+                        if (curvesLimits[id] != null) {
+                            const curveNeatLimits = MathUtil.calculateNeatLimits(curvesLimits[id]['min'], curvesLimits[id]['max']);
+                            curve.setNormalizationLimits(curveNeatLimits.getLow(), curveNeatLimits.getHigh());
+                        }
+                    }
                 }
             }
         } catch(error) {
@@ -70,17 +89,31 @@ export class AwsLasSource extends DataSource {
         this.curves = options.curves;
         this.index = options.index;
         this.file = options.file;
-        this.indexData = options.indexData[0];
         this.indexType = this.index.title;
+        this.dataset = new DataSet({
+            requestwindowmultiplier: 0,
+            includerequestlimits: true,
+            decimation: true,
+            cleartableonscale: false
+        });
+
         this.dataTable = new DataTable({
             cols: [
-                {'name': this.index.title, 'type': 'number', 'unit': this.index.unit}
+                ...this.curves.map(curve => ({'name': curve.title, 'type': 'number', 'unit': curve.unit}))
             ],
-            colsdata: [this.indexData],
             meta: {
                 range: this.range,
                 index: this.indexType
             }
+        });
+
+        this.dataset.addTable(this.dataTable, this.range, this.index.title);
+        this.dataset.on(DataEvents.DataFetching, async (event, sender, args) => {
+            console.log('fetch', args.limits.getLow(), args.limits.getHigh(), args.scale);
+            if (args.limits.getLow() >= args.limits.getHigh()) return;
+
+            const curvesData = await getCurvesData(this.file, this.curves.map(curve => curve.title), args.limits, args.scale, this.index.title);
+            args['callback'](null, {'limits': args['limits'], 'colsdata': curvesData.data});
         });
     }
     getCurves() {
@@ -92,26 +125,18 @@ export class AwsLasSource extends DataSource {
     getIndexType() {
         return this.indexType;
     }
+
     async getCurveSource(curveName) {
         let lowerCaseName = curveName.toLowerCase();
         let curveInfo = this.curves.find(element => element['title'].toLowerCase() === lowerCaseName);
         if (!curveInfo) return null;
-        const indexName = this.dataTable.getMetaData()['index'];
-        const depths = this.dataTable.getColumnByName(indexName);
-        let values = this.dataTable.getColumnByName(curveInfo.title);
-        if(values == null) {
-            const curveData = await getCurvesData(this.file, [curveInfo.title]);
-            const dataSeries = new NumericalDataSeries({
-                'name': curveInfo.title,
-                'unit': curveInfo.unit,
-                'data': curveData['data'][0]
-            });
-            this.dataTable.addColumn(dataSeries);
-            values = dataSeries;
-        }
-        // Sets data source
+        const dataTable = this.dataset.getTable(0);
+        const indexName = dataTable.getMetaData()['index'];
+        const depths = dataTable.getColumnByName(indexName);
+        const values = dataTable.getColumnByName(curveInfo.title);
+
         return values == null ? null :
-            new LogCurveDataSource({'depths': depths, 'values': values});
+            new LogCurveDataSource({'datatable': dataTable, 'depths': depths, 'values': values});
     }
     /**
      * A new data source
@@ -120,6 +145,7 @@ export class AwsLasSource extends DataSource {
      */
     static async create(fileName) {
         const data = await getLasInfo(fileName);
+        curvesLimits = await getCurvesLimits(fileName);
         if (data && data['info'] && data['curves'] && data['curves'].length > 0) {
             const range = new Range(data['info']['minIndex'], data['info']['maxIndex']);
             const curves = data['curves'];
@@ -127,12 +153,10 @@ export class AwsLasSource extends DataSource {
             if (!index) {
                 index = curves[0];
             }
-            const indexData = await getCurvesData(fileName, [index.title]);
             return new AwsLasSource({
-                range: range, 
+                range: range,
                 curves: curves,
                 index: index,
-                indexData: indexData['data'],
                 file: fileName
             });
         }
