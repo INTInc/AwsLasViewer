@@ -38,7 +38,6 @@ import {LogAxisVisualHeader, HeaderType} from '@int/geotoolkit/welllog/header/Lo
 import {LogAxis} from '@int/geotoolkit/welllog/LogAxis';
 import {FillType as LogFillType} from '@int/geotoolkit/welllog/LogFill';
 import {DataBindingRegistry} from '@int/geotoolkit/data/DataBindingRegistry';
-import {HttpClient} from '@int/geotoolkit/http/HttpClient';
 import {Iterator} from '@int/geotoolkit/util/iterator';
 import {NodeOrder} from '@int/geotoolkit/scene/CompositeNode';
 import {LogBlock} from '@int/geotoolkit/welllog/LogBlock';
@@ -51,10 +50,6 @@ import {debounce} from "./utils/debounce.js";
 
 const DEFAULT_HIGHLIGHT_CLASS = 'highlight';
 const SAVE_TEMPLATE_TIMEOUT = 2000;
-const templatePath = '/api/v1/templates/template.json';
-const urlTemplate = new URL(templatePath, process.env.SERVER);
-const topsPath = '/api/v1/tops/tops.json';
-const urlTops = new URL(topsPath, process.env.SERVER);
 const DEFAULT_DARK_COLOR = '#757575';
 const DEFAULT_LIGHT_COLOR = 'rgba(255, 255, 255, 0.85)';
 const DEFAULT_CROSS_LINE_STYLE = {
@@ -230,7 +225,6 @@ export class LogDisplay {
         this._loadData = function () {
           const depthLimits = this._widget.getVisibleDepthLimits();
           const deviceLimits = this._widget.getVisibleDeviceLimits()
-          // const scale = Math.round(Math.abs(this._widget.getTrackContainer().getSceneTransform().getScaleY()) * 1000) / 1000;
           const step = (depthLimits.getHigh() - depthLimits.getLow()) / deviceLimits.getHeight() * 2;
           this._data.dataset.fetch(depthLimits, step);
         };
@@ -410,13 +404,6 @@ export class LogDisplay {
             .add(this._curveBinding);
         wellLogWidget.setData(this._data);
 
-        this.addDefaultTemplate(wellLogWidget, urlTemplate)
-            .then(() => {
-                if (this._widget != null && !this._widget.isDisposed()) {
-                    this.calculateTracksCountWithoutIndexTrack();
-                }
-                this.loadTops(this._widget, urlTops);
-            });
         // Tools
         wellLogWidget.getToolByName('cross-hair')
             .setEnabled(true)
@@ -492,48 +479,37 @@ export class LogDisplay {
     /**
      * Adds template to widget
      * @param {module:geotoolkit/welllog/widgets/WellLogWidget~WellLogWidget} widget widget
-     * @param {string} url URL for template
+     * @param template template
      * @returns {*}
      */
-    addDefaultTemplate (widget, url) {
-        return HttpClient.getInstance().getHttp().get(url, {
-            transformResponse: function (response) {
-                return response.data;
-            }
-        }).then((template) => {
-            if (widget != null && !widget.isDisposed()) {
-                widget.loadTemplate(template);
-            }
-        });
+    loadTemplate (template) {
+        if (this._widget != null && !this._widget.isDisposed()) {
+            this._widget.loadTemplate(template);
+        }
+        this.calculateTracksCountWithoutIndexTrack();
     }
-    loadTops (widget, url) {
-        return HttpClient.getInstance().getHttp().get(url, {
-            'responseType': 'json',
-            transformResponse: function (response) {
-                return response.data;
+
+    loadTops (topsData) {
+        if (this._widget != null && !this._widget.isDisposed()) {
+            const tops = topsData['tops'];
+            this._topsLayer.clearChildren(true);
+            for (let i=0; i < tops.length; ++i) {
+                const top = tops[i];
+                const marker = new LogMarker(top['depth']);
+                marker.setName(top['name']);
+                marker.setLineStyle({'color': top['color'], 'width': 2});
+                marker.setTextStyle({
+                    'color': top['color'],
+                    'alignment': 'left',
+                    'font': '12px sans-serif'
+                });
+                marker.setNameLabel(top['name']);
+                marker.setDepthLabel(top['depth']);
+                marker.setNameLabelPosition(AnchorType.TopCenter);
+                marker.setDepthLabelPosition(AnchorType.BottomCenter);
+                this._topsLayer.addChild(marker)
             }
-        }).then((topsData) => {
-            if (widget != null && !widget.isDisposed()) {
-                const tops = topsData['tops'];
-                this._topsLayer.clearChildren(true);
-                for (let i=0; i < tops.length; ++i) {
-                    const top = tops[i];
-                    const marker = new LogMarker(top['depth']);
-                    marker.setName(top['name']);
-                    marker.setLineStyle({'color': top['color'], 'width': 2});
-                    marker.setTextStyle({
-                        'color': top['color'],
-                        'alignment': 'left',
-                        'font': '12px sans-serif'
-                    });
-                    marker.setNameLabel(top['name']);
-                    marker.setDepthLabel(top['depth']);
-                    marker.setNameLabelPosition(AnchorType.TopCenter);
-                    marker.setDepthLabelPosition(AnchorType.BottomCenter);
-                    this._topsLayer.addChild(marker)
-                }
-            }
-        });
+        }
     }
     /**
      * Adjust widget visible limits

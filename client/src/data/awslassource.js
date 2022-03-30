@@ -1,58 +1,16 @@
-import {HttpClient} from '@int/geotoolkit/http/HttpClient';
 import {DataSource} from '@int/geotoolkit/data/DataSource';
 import {obfuscate} from '@int/geotoolkit/lib';
 import {LogCurveDataSource} from '@int/geotoolkit/welllog/data/LogCurveDataSource';
 import {LogCurve, LimitsType as LogCurveLimitsType} from '@int/geotoolkit/welllog/LogCurve';
 import {DataTable} from '@int/geotoolkit/data/DataTable';
-import {NumericalDataSeries} from '@int/geotoolkit/data/NumericalDataSeries';
 import {Range} from '@int/geotoolkit/util/Range';
 import {MathUtil} from '@int/geotoolkit/util/MathUtil';
 import {DataSet} from '@int/geotoolkit/data/DataSet';
 import {Events as DataEvents} from '@int/geotoolkit/data/Events';
+import {getCurvesData, getCurvesLimits, getLasInfo} from "../api";
 
-const lasPath = '/api/v1/las';
-const serverUrl = new URL(lasPath, process.env.SERVER);
-const http = HttpClient.getInstance().getHttp();
 let curvesLimits = null;
-/**
- * Get las info for the current LAS
- * @param {string} file file name/path
- * @returns {Promise}
- */
-const getLasInfo = async function (file) {
-    const url = serverUrl + '/' + encodeURIComponent(file);
-    return http.get(url, {
-        'responseType': 'json',
-        'transformResponse': function (response) {
-            return response['data'];
-        }
-    });
-};
-const getCurvesLimits = async function (file) {
-    const url = serverUrl + '/' + encodeURIComponent(file) + '/limits';
-    return http.get(url, {
-        'responseType': 'json',
-        'transformResponse': function (response) {
-            return response['data'];
-        }
-    });
-};
-const getCurvesData = async function (file, curves, limits, step, indexName) {
-    const url = serverUrl + '/' + encodeURIComponent(file)+'/curves';
-    const data = JSON.stringify({
-        'curves': curves,
-        'limits': [limits.getLow(), limits.getHigh()],
-        'step': step,
-        'indexName': indexName,
-    });
-    return http.post(url, data, {
-        'headers': {'Content-Type': 'application/json'},
-        'responseType': 'json',
-        'transformResponse': function (response) {
-            return response['data'];
-        }
-    });
-};
+
 export class BindingFunction {
     accept (node) {
         return node instanceof LogCurve;
@@ -109,9 +67,7 @@ export class AwsLasSource extends DataSource {
 
         this.dataset.addTable(this.dataTable, this.range, this.index.title);
         this.dataset.on(DataEvents.DataFetching, async (event, sender, args) => {
-            console.log('fetch', args.limits.getLow(), args.limits.getHigh(), args.scale);
             if (args.limits.getLow() >= args.limits.getHigh()) return;
-
             const curvesData = await getCurvesData(this.file, this.curves.map(curve => curve.title), args.limits, args.scale, this.index.title);
             args['callback'](null, {'limits': args['limits'], 'colsdata': curvesData.data});
         });

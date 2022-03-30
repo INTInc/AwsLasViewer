@@ -16,5 +16,8 @@ export default {
     MoveVisualUp: 'move-visual-up',
     MoveVisualDown: 'move-visual-down',
     MoveVisualTop: 'move-visual-top',
-    MoveVisualBottom: 'move-visual-bottom'
+    MoveVisualBottom: 'move-visual-bottom',
+    LoadLasFileFromServer: 'load-las-file-from-server',
+    LoadTemplateFileFromServer: 'load-template-file-from-server',
+    LoadTopsFileFromServer: 'load-tops-file-from-server',
 };

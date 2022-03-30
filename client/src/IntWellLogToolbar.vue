@@ -90,6 +90,21 @@
         icon="mdi-file-download"
         @click="$emit('button-click', ToolbarActions.TemplateImport)"
       />
+      <int-button
+          title="Load LAS File from Server"
+          icon="mdi-cloud-download"
+          @click="$emit('button-click', ToolbarActions.LoadLasFileFromServer)"
+      />
+      <int-button
+          title="Load Template File from Server"
+          icon="mdi-cloud-download"
+          @click="$emit('button-click', ToolbarActions.LoadTemplateFileFromServer)"
+      />
+      <int-button
+          title="Load Tops File from Server"
+          icon="mdi-cloud-download"
+          @click="$emit('button-click', ToolbarActions.LoadTopsFileFromServer)"
+      />
     </template>
   </int-toolbar>
 </template>
