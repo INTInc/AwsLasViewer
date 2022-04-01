@@ -17,14 +17,13 @@ const querySectionByName = function(sections, name) {
 };
 const getCurvesList = function(parser) {
     const curves = [];
-    parser.getSectionGroups().forEach((section) => {
-      section.getCurveMnemonics().forEach((name) => {
-        const info = section.getCurveInfo(name);
-        curves.push({
-          title: name,
-          description: info.getDescription(),
-          unit: info.getUnit(),
-        });
+    const section = findSectionGroup(parser)
+    section.getCurveMnemonics().forEach((name) => {
+      const info = section.getCurveInfo(name);
+      curves.push({
+        title: name,
+        description: info.getDescription(),
+        unit: info.getUnit(),
       });
     });
     return curves;
@@ -46,31 +45,40 @@ const queryDataByKey = function(data, key) {
     }
     return null;
 };
+const findSectionGroup = function(parser) {
+    const sectionGroups = parser.getSectionGroups();
+    if (sectionGroups[0].getName() === 'LAS2') {
+        return sectionGroups[0];
+    }
+    return sectionGroups.find(sectionGroup => {
+        return sectionGroup.getSections()['data']['name'].toLowerCase().includes('ascii');
+    });
+}
 const getCurveData = function(parser, curveName, fileName, cache, limits, step, indexName) {
     let curve = null;
     let index = null;
     curveName = curveName.toLowerCase();
 
-    parser.getSectionGroups().forEach((section) => {
-      section.getCurveMnemonics().forEach((mnemonic) => {
-        if (mnemonic.toLowerCase() === curveName) {
-          curve = cache.get(fileName + '/' + curveName);
-          if (curve == null) {
-            curve = section.getCurveData(mnemonic);
-            cache.set(fileName + '/' + curveName, curve);
-          }
+    const section = findSectionGroup(parser);
+    section.getCurveMnemonics().forEach((mnemonic) => {
+      if (mnemonic.toLowerCase() === curveName) {
+        curve = cache.get(fileName + '/' + curveName);
+        if (curve == null) {
+          curve = section.getCurveData(mnemonic);
+          cache.set(fileName + '/' + curveName, curve);
         }
+      }
 
-        if (indexName != null) {
-            if (mnemonic.toLowerCase() === indexName.toLowerCase()) {
-                index = cache.get(fileName + '/' + indexName);
-                if (index == null) {
-                    index = section.getCurveData(mnemonic);
-                    cache.set(fileName + '/' + indexName, index);
-                }
-            }
-        }
-      });
+      if (indexName != null) {
+          if (mnemonic.toLowerCase() === indexName.toLowerCase()) {
+              index = cache.get(fileName + '/' + indexName);
+              if (index == null) {
+                  index = section.getCurveData(mnemonic);
+                  cache.set(fileName + '/' + indexName, index);
+              }
+          }
+      }
+    });
 
       let sliceStart, sliceEnd;
       if (limits != null) {
@@ -80,7 +88,6 @@ const getCurveData = function(parser, curveName, fileName, cache, limits, step, 
           if (sliceEnd < sliceStart) sliceEnd = index.length;
           curve = curve.slice(sliceStart, sliceEnd);
       }
-    });
 
     let defaultStep = null;
     if (index != null) {
@@ -91,7 +98,6 @@ const getCurveData = function(parser, curveName, fileName, cache, limits, step, 
     if (step == null || defaultStep == null || defaultStep > step) {
         return curve;
     }
-
     return decimate(curve, step / defaultStep);
 };
 
@@ -101,16 +107,15 @@ const getCurvesLimits = function(parser, fileName, cache) {
         return limits;
     }
     limits = {};
-    parser.getSectionGroups().forEach((section) => {
-        section.getCurveMnemonics().forEach((mnemonic) => {
-            const curveData = getCurveData(parser, mnemonic, fileName, cache).filter(v => v != null && !isNaN(v));
-            const min = MathUtil.getMin(curveData);
-            const max = MathUtil.getMax(curveData);
-            limits[mnemonic] = {
-                min: min,
-                max: max
-            };
-        });
+    const section = findSectionGroup(parser);
+    section.getCurveMnemonics().forEach((mnemonic) => {
+        const curveData = getCurveData(parser, mnemonic, fileName, cache).filter(v => v != null && !isNaN(v));
+        const min = MathUtil.getMin(curveData);
+        const max = MathUtil.getMax(curveData);
+        limits[mnemonic] = {
+            min: min,
+            max: max
+        };
     });
     cache.set(fileName + '/curvesLimits', limits);
     return limits;

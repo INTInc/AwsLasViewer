@@ -97,12 +97,12 @@
       />
       <int-button
           title="Load Template File from Server"
-          icon="mdi-cloud-download"
+          icon="mdi-download-box-outline"
           @click="$emit('button-click', ToolbarActions.LoadTemplateFileFromServer)"
       />
       <int-button
           title="Load Tops File from Server"
-          icon="mdi-cloud-download"
+          icon="mdi-download-outline"
           @click="$emit('button-click', ToolbarActions.LoadTopsFileFromServer)"
       />
     </template>

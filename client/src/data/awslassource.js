@@ -29,8 +29,12 @@ export class BindingFunction {
                     curve.setData(source, true, true);
                     if (curvesLimits != null) {
                         if (curvesLimits[id] != null) {
-                            const curveNeatLimits = MathUtil.calculateNeatLimits(curvesLimits[id]['min'], curvesLimits[id]['max']);
-                            curve.setNormalizationLimits(curveNeatLimits.getLow(), curveNeatLimits.getHigh());
+                            const min = curvesLimits[id]['min'];
+                            const max = curvesLimits[id]['max'];
+                            if (min != null && max != null) {
+                                const curveNeatLimits = MathUtil.calculateNeatLimits(min, max);
+                                curve.setNormalizationLimits(curveNeatLimits.getLow(), curveNeatLimits.getHigh());
+                            }
                         }
                     }
                 }

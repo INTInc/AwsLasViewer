@@ -9,7 +9,7 @@
       <int-loader class="d-flex" />
     </div>
 
-    <int-list v-if="!loading">
+    <int-list v-if="!loading && files.length > 0">
       <int-list-item
           v-for="(fileName, index) in files"
           :key="index"
@@ -18,6 +18,10 @@
           @click.native="$emit('selectFile', fileName)"
       />
     </int-list>
+
+    <div v-if="!loading && files.length === 0" class="d-flex justify-center">
+      No files found
+    </div>
   </int-dialog>
 </template>
 
