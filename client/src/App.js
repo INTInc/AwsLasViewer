@@ -44,9 +44,10 @@ import {LogBlock} from '@int/geotoolkit/welllog/LogBlock';
 import {Annotation} from '@int/geotoolkit/widgets/overlays/Annotation';
 import {LabelPositions as CrossHairLabelPositions} from '@int/geotoolkit/controls/tools/CrossHair';
 import VisualZIndexDirections from './VisualZIndexDirections';
-import {BindingFunction} from './data/awslassource';
+import {AwsLasSource, BindingFunction} from './data/awslassource';
 import {Layer} from '@int/geotoolkit/scene/Layer';
 import {debounce} from "./utils/debounce.js";
+import {defaultTemplate} from './defaultWellLogTemplate';
 
 const DEFAULT_HIGHLIGHT_CLASS = 'highlight';
 const SAVE_TEMPLATE_TIMEOUT = 2000;
@@ -223,11 +224,16 @@ export class LogDisplay {
 
         this._firstLoad = true;
         this._loadData = function () {
-          const depthLimits = this._widget.getVisibleDepthLimits();
-          const deviceLimits = this._widget.getVisibleDeviceLimits()
-          const step = (depthLimits.getHigh() - depthLimits.getLow()) / deviceLimits.getHeight() * 2;
-          this._data.dataset.fetch(depthLimits, step);
+          const {depthLimits, step} = this.getDepthLimitsAndStep();
+            AwsLasSource.dataset.fetch(depthLimits, step);
         };
+    }
+
+    getDepthLimitsAndStep() {
+        const depthLimits = this._widget.getVisibleDepthLimits();
+        const deviceLimits = this._widget.getVisibleDeviceLimits();
+        const step = (depthLimits.getHigh() - depthLimits.getLow()) / deviceLimits.getHeight() * 2;
+        return {depthLimits, step};
     }
 
     set canLoadData(value) {
@@ -964,6 +970,20 @@ export class LogDisplay {
             return;
         }
         localStorage.setItem('template_saved', template);
+    }
+
+    /**
+     * Loads default template
+     */
+    loadDefaultTemplate () {
+        if (this._widget == null) {
+            return;
+        }
+        try {
+            this._widget.loadTemplate(defaultTemplate);
+        } catch (e) {
+            warn('ERROR cannot load the template');
+        }
     }
 
     /**

@@ -9,8 +9,6 @@ import {DataSet} from '@int/geotoolkit/data/DataSet';
 import {Events as DataEvents} from '@int/geotoolkit/data/Events';
 import {getCurvesData, getCurvesLimits, getLasInfo} from "../api";
 
-let curvesLimits = null;
-
 export class BindingFunction {
     accept (node) {
         return node instanceof LogCurve;
@@ -19,18 +17,19 @@ export class BindingFunction {
         if (data == null || curve.isDisposed()) {
             return;
         }
-        const id = curve.getName();
+        const curveName = curve.getName();
         try {
-            const source = await data.getCurveSource(id);
+            const source = await data.getCurveSource(curveName);
             if (source != null) {
                 if (curve.isCustomLimits() === true) {
                     curve.setData(source, false, true);
                 } else {
                     curve.setData(source, true, true);
+                    const curvesLimits = AwsLasSource.curvesLimits;
                     if (curvesLimits != null) {
-                        if (curvesLimits[id] != null) {
-                            const min = curvesLimits[id]['min'];
-                            const max = curvesLimits[id]['max'];
+                        if (curvesLimits[curveName] != null) {
+                            const min = curvesLimits[curveName]['min'];
+                            const max = curvesLimits[curveName]['max'];
                             if (min != null && max != null) {
                                 const curveNeatLimits = MathUtil.calculateNeatLimits(min, max);
                                 curve.setNormalizationLimits(curveNeatLimits.getLow(), curveNeatLimits.getHigh());
@@ -38,13 +37,30 @@ export class BindingFunction {
                         }
                     }
                 }
+                if (!AwsLasSource.visibleCurves.includes(curveName)) {
+                    AwsLasSource.visibleCurves.push(curveName);
+                }
+                if (AwsLasSource.dataset != null && AwsLasSource.getDepthLimitsAndStep != null) {
+                    const {depthLimits, step} = AwsLasSource.getDepthLimitsAndStep();
+                    AwsLasSource.dataset.invalidateRange(AwsLasSource.dataset.getIndexRange(0), false);
+                    AwsLasSource.dataset.fetch(depthLimits, step);
+                }
             }
         } catch(error) {
             curve.setData(null);
         }
     }
+    unbind(curve) {
+        const curveName = curve.getName();
+        AwsLasSource.visibleCurves = AwsLasSource.visibleCurves.filter(v => v !== curveName);
+    }
 }
 export class AwsLasSource extends DataSource {
+    static curvesLimits = null;
+    static getDepthLimitsAndStep = null;
+    static visibleCurves = [];
+    static dataset = null;
+
     constructor(options) {
         super();
         this.range = options.range;
@@ -52,12 +68,13 @@ export class AwsLasSource extends DataSource {
         this.index = options.index;
         this.file = options.file;
         this.indexType = this.index.title;
-        this.dataset = new DataSet({
+        AwsLasSource.dataset = new DataSet({
             requestwindowmultiplier: 0,
             includerequestlimits: true,
             decimation: true,
             cleartableonscale: false
         });
+        AwsLasSource.visibleCurves = [];
 
         this.dataTable = new DataTable({
             cols: [
@@ -69,11 +86,25 @@ export class AwsLasSource extends DataSource {
             }
         });
 
-        this.dataset.addTable(this.dataTable, this.range, this.index.title);
-        this.dataset.on(DataEvents.DataFetching, async (event, sender, args) => {
-            if (args.limits.getLow() >= args.limits.getHigh()) return;
-            const curvesData = await getCurvesData(this.file, this.curves.map(curve => curve.title), args.limits, args.scale, this.index.title);
-            args['callback'](null, {'limits': args['limits'], 'colsdata': curvesData.data});
+        AwsLasSource.dataset.addTable(this.dataTable, this.range, this.index.title);
+        AwsLasSource.dataset.on(DataEvents.DataFetching, async (event, sender, args) => {
+            if (args.limits.getLow() >= args.limits.getHigh() || AwsLasSource.visibleCurves.length === 0) return;
+            const curvesToRequest = [...AwsLasSource.visibleCurves];
+            if (!curvesToRequest.includes(this.index.title)) {
+                curvesToRequest.push(this.index.title);
+            }
+            const curvesData = await getCurvesData(this.file, curvesToRequest, args.limits, args.scale, this.index.title);
+            const curvesToUpdate = [];
+            const curvesNames = this.curves.map(curve => curve.title);
+            for (let i = 0; i < curvesNames.length; i++) {
+                let index = curvesToRequest.findIndex(v => v === curvesNames[i]);
+                if (index === -1) {
+                    curvesToUpdate.push([]);
+                } else {
+                    curvesToUpdate.push(curvesData.data[index]);
+                }
+            }
+            args['callback'](null, {'limits': args['limits'], 'colsdata': curvesToUpdate});
         });
     }
     getCurves() {
@@ -90,7 +121,7 @@ export class AwsLasSource extends DataSource {
         let lowerCaseName = curveName.toLowerCase();
         let curveInfo = this.curves.find(element => element['title'].toLowerCase() === lowerCaseName);
         if (!curveInfo) return null;
-        const dataTable = this.dataset.getTable(0);
+        const dataTable = AwsLasSource.dataset.getTable(0);
         const indexName = dataTable.getMetaData()['index'];
         const depths = dataTable.getColumnByName(indexName);
         const values = dataTable.getColumnByName(curveInfo.title);
@@ -105,7 +136,7 @@ export class AwsLasSource extends DataSource {
      */
     static async create(fileName) {
         const data = await getLasInfo(fileName);
-        curvesLimits = await getCurvesLimits(fileName);
+        AwsLasSource.curvesLimits = await getCurvesLimits(fileName);
         if (data && data['info'] && data['curves'] && data['curves'].length > 0) {
             const range = new Range(data['info']['minIndex'], data['info']['maxIndex']);
             const curves = data['curves'];

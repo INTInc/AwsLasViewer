@@ -239,7 +239,6 @@ export default {
         if (this.wellLogNeedsUpdate) {
             wellLogWidget.fitToHeight();
             wellLogWidget.canLoadData = true;
-            wellLogWidget.loadData();
             this.wellLogNeedsUpdate = false;
         }
     },
@@ -270,8 +269,9 @@ export default {
             wellLogWidget.onEmptySelect(() => {
               this.isShapeSelected = false;
             });
-            wellLogWidget.loadTemplateFromLocalStorage();
+            wellLogWidget.loadDefaultTemplate();
             this.showLasFileSelectDialog = false;
+            AwsLasSource.getDepthLimitsAndStep = wellLogWidget.getDepthLimitsAndStep.bind(wellLogWidget);
           }, (error) => {
 
           });
@@ -280,7 +280,6 @@ export default {
           getTemplateFile(fileName).then(template => {
             if (wellLogWidget != null) {
               wellLogWidget.loadTemplate(template);
-              wellLogWidget.saveTemplateToLocalStorage();
             }
             this.showTemplatesFileSelectDialog = false;
           });
@@ -337,7 +336,6 @@ export default {
                     break;
                 case ToolbarActions.TemplateExport:
                     if (wellLogWidget != null) {
-                      this.saveTemplateToLocalStorage();
                       this.saveTemplateToFile();
                     } else {
                       this.showWarningDialog('You should load LAS file first');
@@ -467,7 +465,6 @@ export default {
         loadTemplateFromFile: function () {
             if (wellLogWidget != null) {
               wellLogWidget.loadTemplateFromFile();
-              wellLogWidget.saveTemplateToLocalStorage();
             }
         },
         saveTemplateToLocalStorage: function () {
