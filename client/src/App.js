@@ -167,7 +167,7 @@ export class LogDisplay {
         this._curvesList = [];
         this._selectedCurves = [];
         this._curveBinding = new BindingFunction();
-        this._topsLayer = new Layer(); 
+        this._topsLayer = new Layer();
         this._widget = this.createWellLogWidget();
         this._navigationWidget = this.createNavigationWidget();
         this._navigationTool = new Navigation({
@@ -224,7 +224,7 @@ export class LogDisplay {
 
         this._firstLoad = true;
         this._loadData = function () {
-          const {depthLimits, step} = this.getDepthLimitsAndStep();
+            const {depthLimits, step} = this.getDepthLimitsAndStep();
             AwsLasSource.dataset.fetch(depthLimits, step);
         };
     }
@@ -402,7 +402,7 @@ export class LogDisplay {
                 return node instanceof LogAbstractVisual || node instanceof LogAxis;
             }
         }).setLayoutStyle({'left': 0, 'top': 0, 'right': 0, 'bottom': 0});
-        
+
         wellLogWidget.getTrackContainer().addLayer(this._topsLayer);
         this.configureHeaders(wellLogWidget);
         // Add data binding for curve
@@ -1123,8 +1123,8 @@ export class LogDisplay {
         }
 
         for (const index in this._selectedCurves) {
-            const curveData = await data.getCurveSource(this._selectedCurves[index].name);
-            this.addCurveToTrack(curveData, track);
+            const {source} = await data.getCurveSource(this._selectedCurves[index].name);
+            this.addCurveToTrack(source, track);
         }
 
         if (this._oldTrackIndex !== -1) {

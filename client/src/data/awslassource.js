@@ -19,7 +19,7 @@ export class BindingFunction {
         }
         const curveName = curve.getName();
         try {
-            const source = await data.getCurveSource(curveName);
+            const {source, tableIndex} = await data.getCurveSource(curveName);
             if (source != null) {
                 if (curve.isCustomLimits() === true) {
                     curve.setData(source, false, true);
@@ -42,8 +42,8 @@ export class BindingFunction {
                 }
                 if (AwsLasSource.dataset != null && AwsLasSource.getDepthLimitsAndStep != null) {
                     const {depthLimits, step} = AwsLasSource.getDepthLimitsAndStep();
-                    AwsLasSource.dataset.invalidateRange(AwsLasSource.dataset.getIndexRange(0), false);
-                    AwsLasSource.dataset.fetch(depthLimits, step);
+                    AwsLasSource.dataset.invalidateRange(AwsLasSource.dataset.getIndexRange(tableIndex), false);
+                    AwsLasSource.dataset.fetchTable(tableIndex, depthLimits, step);
                 }
             }
         } catch(error) {
@@ -60,6 +60,7 @@ export class AwsLasSource extends DataSource {
     static getDepthLimitsAndStep = null;
     static visibleCurves = [];
     static dataset = null;
+    static cachedIndex = null;
 
     constructor(options) {
         super();
@@ -69,42 +70,77 @@ export class AwsLasSource extends DataSource {
         this.file = options.file;
         this.indexType = this.index.title;
         AwsLasSource.dataset = new DataSet({
-            requestwindowmultiplier: 0,
+            requestwindowmultiplier: 0.01,
             includerequestlimits: true,
             decimation: true,
+            numberofparallelrequests: 1,
             cleartableonscale: false
         });
         AwsLasSource.visibleCurves = [];
+        AwsLasSource.cachedIndex = null;
 
-        this.dataTable = new DataTable({
-            cols: [
-                ...this.curves.map(curve => ({'name': curve.title, 'type': 'number', 'unit': curve.unit}))
-            ],
-            meta: {
-                range: this.range,
-                index: this.indexType
-            }
-        });
+        this.dataTables = [];
+        for (const curve of this.curves) {
+            const dataTable = new DataTable({
+                cols: [
+                    {'name': this.index.title, type: 'number', 'unit': this.index.unit},
+                    {'name': curve.title, 'type': 'number', 'unit': curve.unit}
+                ],
+                meta: {
+                    range: this.range,
+                    index: this.indexType,
+                    name: curve.title
+                }
+            });
+            this.dataTables.push(dataTable);
+            AwsLasSource.dataset.addTable(dataTable, this.range, this.index.title);
+        }
 
-        AwsLasSource.dataset.addTable(this.dataTable, this.range, this.index.title);
         AwsLasSource.dataset.on(DataEvents.DataFetching, async (event, sender, args) => {
-            if (args.limits.getLow() >= args.limits.getHigh() || AwsLasSource.visibleCurves.length === 0) return;
-            const curvesToRequest = [...AwsLasSource.visibleCurves];
-            if (!curvesToRequest.includes(this.index.title)) {
-                curvesToRequest.push(this.index.title);
+            if (args.limits.getLow() >= args.limits.getHigh() || args.tables.length === 0) return;
+            const curveName = args.tables[0].getMetaData()['name'];
+            const indexName = this.index.title;
+
+            console.log(AwsLasSource.visibleCurves.length)
+
+            if (!AwsLasSource.visibleCurves.includes(curveName)) {
+                console.log('update not included')
+                args['callback'](null, {'limits': args['limits'], 'colsdata': null});
+                return;
             }
-            const curvesData = await getCurvesData(this.file, curvesToRequest, args.limits, args.scale, this.index.title);
-            const curvesToUpdate = [];
-            const curvesNames = this.curves.map(curve => curve.title);
-            for (let i = 0; i < curvesNames.length; i++) {
-                let index = curvesToRequest.findIndex(v => v === curvesNames[i]);
-                if (index === -1) {
-                    curvesToUpdate.push([]);
+
+            // If it is needed to request from server more than one curve data for same limits and scale,
+            // the index will be requested only one time
+            const cachedIndex = AwsLasSource.cachedIndex != null &&
+                AwsLasSource.cachedIndex.limits.getLow() === args['limits'].getLow() &&
+                AwsLasSource.cachedIndex.limits.getHigh() === args['limits'].getHigh() &&
+                AwsLasSource.cachedIndex.scale === args['scale'];
+
+            let dataToUpdate;
+            let curvesData;
+
+            if (cachedIndex) {
+                if (curveName === indexName) {
+                    dataToUpdate = [AwsLasSource.cachedIndex.data, AwsLasSource.cachedIndex.data];
                 } else {
-                    curvesToUpdate.push(curvesData.data[index]);
+                    curvesData = await getCurvesData(this.file, [curveName], args.limits, args.scale, indexName);
+                    dataToUpdate = [AwsLasSource.cachedIndex.data, curvesData.data[0]];
+                }
+            } else {
+                if (curveName === indexName) {
+                    curvesData = await getCurvesData(this.file, [curveName], args.limits, args.scale, indexName);
+                    dataToUpdate = [curvesData.data[0], curvesData.data[0]];
+                } else {
+                    curvesData = await getCurvesData(this.file, [indexName, curveName], args.limits, args.scale, indexName);
+                    dataToUpdate = curvesData.data;
+                }
+                AwsLasSource.cachedIndex = {
+                    limits: args.limits,
+                    scale: args.scale,
+                    data: curvesData.data[0]
                 }
             }
-            args['callback'](null, {'limits': args['limits'], 'colsdata': curvesToUpdate});
+            args['callback'](null, {'limits': args['limits'], 'colsdata': dataToUpdate});
         });
     }
     getCurves() {
@@ -117,21 +153,29 @@ export class AwsLasSource extends DataSource {
         return this.indexType;
     }
 
+    findTableIndex(curveName) {
+        const tableIndex = this.dataTables.findIndex(dt => dt.getMetaData()['name'] === curveName);
+        return (tableIndex === -1 ? null : tableIndex);
+    }
+
     async getCurveSource(curveName) {
         let lowerCaseName = curveName.toLowerCase();
         let curveInfo = this.curves.find(element => element['title'].toLowerCase() === lowerCaseName);
-        if (!curveInfo) return null;
-        const dataTable = AwsLasSource.dataset.getTable(0);
+        if (!curveInfo) return {'source': null, 'tableIndex': null};
+        const tableIndex = this.findTableIndex(curveName);
+        const dataTable = AwsLasSource.dataset.getTable(tableIndex);
         const indexName = dataTable.getMetaData()['index'];
         const depths = dataTable.getColumnByName(indexName);
         const values = dataTable.getColumnByName(curveInfo.title);
-
-        return values == null ? null :
-            new LogCurveDataSource({'datatable': dataTable, 'depths': depths, 'values': values});
+        return {
+            'source': values == null ? null :
+                new LogCurveDataSource({'datatable': dataTable, 'depths': depths, 'values': values}),
+            'tableIndex': tableIndex
+        };
     }
     /**
      * A new data source
-     * @param {string} fileName 
+     * @param {string} fileName
      * @returns {AwsLasSource}
      */
     static async create(fileName) {
