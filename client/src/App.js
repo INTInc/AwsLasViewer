@@ -222,11 +222,10 @@ export class LogDisplay {
         this._widget.setCss(new CssStyle(widgetCssStyle));
         this.updateCurvesList();
 
-        this._firstLoad = true;
-        this._loadData = function () {
+        this._loadData = debounce(() => {
             const {depthLimits, step} = this.getDepthLimitsAndStep();
             AwsLasSource.dataset.fetch(depthLimits, step);
-        };
+        }, 500);
     }
 
     getDepthLimitsAndStep() {
@@ -243,10 +242,6 @@ export class LogDisplay {
     loadData() {
         if (!this._canLoadData) return;
         this._loadData();
-        if (this._firstLoad) {
-          this._firstLoad = false;
-          this._loadData = debounce(this._loadData, 500);
-        }
     }
 
     /**

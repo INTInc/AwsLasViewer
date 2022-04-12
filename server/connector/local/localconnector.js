@@ -13,7 +13,6 @@ export class LocalConnector extends Connector {
             if (fs.existsSync(fullFolderPath)) {
                 fs.readdir(fullFolderPath, (err, files) => {
                     if(err) {
-                        console.log(err);
                         reject(err);
                     }
                     resolve(files);

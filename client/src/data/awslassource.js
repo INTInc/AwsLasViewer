@@ -101,10 +101,7 @@ export class AwsLasSource extends DataSource {
             const curveName = args.tables[0].getMetaData()['name'];
             const indexName = this.index.title;
 
-            console.log(AwsLasSource.visibleCurves.length)
-
             if (!AwsLasSource.visibleCurves.includes(curveName)) {
-                console.log('update not included')
                 args['callback'](null, {'limits': args['limits'], 'colsdata': null});
                 return;
             }
