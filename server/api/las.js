@@ -35,7 +35,7 @@ const getInfo = function (parser) {
     return {
         'minIndex': minIndex,
         'maxIndex': maxIndex
-    }  
+    }
 };
 const queryDataByKey = function(data, key) {
     for (let i = 0; i < data.length; ++i) {
@@ -54,7 +54,7 @@ const findSectionGroup = function(parser) {
         return sectionGroup.getSections()['data']['name'].toLowerCase().includes('ascii');
     });
 }
-const getCurveData = function(parser, curveName, fileName, cache, limits, step, indexName) {
+const getCurveData = function(parser, curveName, fileName, cache, limits, deviceStep, indexName) {
     let curve = null;
     let index = null;
     curveName = curveName.toLowerCase();
@@ -89,17 +89,38 @@ const getCurveData = function(parser, curveName, fileName, cache, limits, step, 
           curve = curve.slice(sliceStart, sliceEnd);
       }
 
-    let defaultStep = null;
+    let curveStep = null;
     if (index != null) {
         const indexLimits = getInfo(parser);
-        defaultStep = (indexLimits.maxIndex - indexLimits.minIndex) / index.length;
+        curveStep = getCurveStep(parser, fileName, cache);
     }
 
-    if (step == null || defaultStep == null || defaultStep > step) {
+    if (deviceStep == null || curveStep == null || curveStep > deviceStep) {
         return curve;
     }
-    return decimate(curve, step / defaultStep);
+    return decimate(curve, deviceStep / curveStep);
 };
+
+const getCurveStep = function(parser, fileName, cache) {
+    let step;
+    step = cache.get(fileName + '/curveStep');
+    if (step != null) return step;
+
+    const wellSection = querySectionByName(parser.getSections(), 'WELL');
+    step = parseFloat(queryDataByKey(wellSection.getData(), 'STEP').getValue());
+    if (!isNaN(step) && step > 0)  {
+        cache.set(fileName + '/curveStep', step)
+        return step;
+    }
+
+    const section = findSectionGroup(parser);
+    const mnemonic = section.getCurveMnemonics()[0]
+    const curveLength = getCurveData(parser, mnemonic, fileName, cache).length;
+    const indexLimits = getInfo(parser);
+    step = (indexLimits.maxIndex - indexLimits.minIndex) / curveLength;
+    cache.set(fileName + '/curveStep', step)
+    return step;
+}
 
 const getCurvesLimits = function(parser, fileName, cache) {
     let limits = cache.get(fileName + '/curvesLimits');
@@ -206,8 +227,9 @@ export const las = (app, connector, cache) => {
             const fileName = path.join(folder, req.params.file);
             const fileContent = await getFileContent(fileName);
             const parser = ParserFactory.getParser(fileContent.toString());
-            const curvesLimits = getCurvesLimits(parser, fileName, cache);
-            return res.json(curvesLimits);
+            const limits = getCurvesLimits(parser, fileName, cache);
+            const step = getCurveStep(parser, fileName, cache);
+            return res.json({limits, step});
         } catch(error) {
             logger.error(error);
             return res.status(status.BAD_REQUEST).json({

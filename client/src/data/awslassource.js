@@ -57,6 +57,7 @@ export class BindingFunction {
 }
 export class AwsLasSource extends DataSource {
     static curvesLimits = null;
+    static curveStep = null;
     static getDepthLimitsAndStep = null;
     static visibleCurves = [];
     static dataset = null;
@@ -177,7 +178,9 @@ export class AwsLasSource extends DataSource {
      */
     static async create(fileName) {
         const data = await getLasInfo(fileName);
-        AwsLasSource.curvesLimits = await getCurvesLimits(fileName);
+        const {limits, step} = await getCurvesLimits(fileName);
+        AwsLasSource.curvesLimits = limits;
+        AwsLasSource.curveStep = step;
         if (data && data['info'] && data['curves'] && data['curves'].length > 0) {
             const range = new Range(data['info']['minIndex'], data['info']['maxIndex']);
             const curves = data['curves'];

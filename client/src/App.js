@@ -231,7 +231,10 @@ export class LogDisplay {
     getDepthLimitsAndStep() {
         const depthLimits = this._widget.getVisibleDepthLimits();
         const deviceLimits = this._widget.getVisibleDeviceLimits();
-        const step = (depthLimits.getHigh() - depthLimits.getLow()) / deviceLimits.getHeight() * 2;
+        const step = Math.max(
+            AwsLasSource.curveStep,
+            (depthLimits.getHigh() - depthLimits.getLow()) / deviceLimits.getHeight() * 2
+        );
         return {depthLimits, step};
     }
 
