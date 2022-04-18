@@ -4,6 +4,8 @@ import path from 'path';
 import {getLogger} from '../utils/log';
 import '@int/geotoolkit/environment.js';
 import {ParserFactory} from '@int/geotoolkit/welllog/data/las/ParserFactory.js';
+import {MathUtil} from "@int/geotoolkit/util/MathUtil.js";
+import {decimate} from "../utils/decimate.js";
 
 const querySectionByName = function(sections, name) {
     for (let i = 0; i < sections.length; ++i) {
@@ -15,14 +17,13 @@ const querySectionByName = function(sections, name) {
 };
 const getCurvesList = function(parser) {
     const curves = [];
-    parser.getSectionGroups().forEach((section) => {
-      section.getCurveMnemonics().forEach((name) => {
-        const info = section.getCurveInfo(name);
-        curves.push({
-            title: name,
-            description: info.getDescription(),
-            unit: info.getUnit(),
-        });
+    const section = findSectionGroup(parser)
+    section.getCurveMnemonics().forEach((name) => {
+      const info = section.getCurveInfo(name);
+      curves.push({
+        title: name,
+        description: info.getDescription(),
+        unit: info.getUnit(),
       });
     });
     return curves;
@@ -34,7 +35,7 @@ const getInfo = function (parser) {
     return {
         'minIndex': minIndex,
         'maxIndex': maxIndex
-    }  
+    }
 };
 const queryDataByKey = function(data, key) {
     for (let i = 0; i < data.length; ++i) {
@@ -44,19 +45,102 @@ const queryDataByKey = function(data, key) {
     }
     return null;
 };
-const getCurveData = function(parser, curveName) {
-    let curve = null;
-    curveName = curveName.toLowerCase();
-    parser.getSectionGroups().forEach((section) => {
-      section.getCurveMnemonics().forEach((mnemonic) => {
-        if (mnemonic.toLowerCase() === curveName) {
-          const info = section.getCurveInfo(mnemonic);
-          curve = section.getCurveData(mnemonic);
-        }
-      });
+const findSectionGroup = function(parser) {
+    const sectionGroups = parser.getSectionGroups();
+    if (sectionGroups[0].getName() === 'LAS2') {
+        return sectionGroups[0];
+    }
+    return sectionGroups.find(sectionGroup => {
+        return sectionGroup.getSections()['data']['name'].toLowerCase().includes('ascii');
     });
-    return curve;
+}
+const getCurveData = function(parser, curveName, fileName, cache, limits, deviceStep, indexName) {
+    let curve = null;
+    let index = null;
+    curveName = curveName.toLowerCase();
+
+    const section = findSectionGroup(parser);
+    section.getCurveMnemonics().forEach((mnemonic) => {
+      if (mnemonic.toLowerCase() === curveName) {
+        curve = cache.get(fileName + '/' + curveName);
+        if (curve == null) {
+          curve = section.getCurveData(mnemonic);
+          cache.set(fileName + '/' + curveName, curve);
+        }
+      }
+
+      if (indexName != null) {
+          if (mnemonic.toLowerCase() === indexName.toLowerCase()) {
+              index = cache.get(fileName + '/' + indexName);
+              if (index == null) {
+                  index = section.getCurveData(mnemonic);
+                  cache.set(fileName + '/' + indexName, index);
+              }
+          }
+      }
+    });
+
+      let sliceStart, sliceEnd;
+      if (limits != null) {
+          sliceStart = index.findIndex(v => v >= limits[0]);
+          sliceEnd = index.findIndex(v => v >= limits[1]);
+          if (sliceEnd === sliceStart) sliceEnd += 1;
+          if (sliceEnd < sliceStart) sliceEnd = index.length;
+          curve = curve.slice(sliceStart, sliceEnd);
+      }
+
+    let curveStep = null;
+    if (index != null) {
+        const indexLimits = getInfo(parser);
+        curveStep = getCurveStep(parser, fileName, cache);
+    }
+
+    if (deviceStep == null || curveStep == null || curveStep > deviceStep) {
+        return curve;
+    }
+    return decimate(curve, deviceStep / curveStep);
 };
+
+const getCurveStep = function(parser, fileName, cache) {
+    let step;
+    step = cache.get(fileName + '/curveStep');
+    if (step != null) return step;
+
+    const wellSection = querySectionByName(parser.getSections(), 'WELL');
+    step = parseFloat(queryDataByKey(wellSection.getData(), 'STEP').getValue());
+    if (!isNaN(step) && step > 0)  {
+        cache.set(fileName + '/curveStep', step)
+        return step;
+    }
+
+    const section = findSectionGroup(parser);
+    const mnemonic = section.getCurveMnemonics()[0]
+    const curveLength = getCurveData(parser, mnemonic, fileName, cache).length;
+    const indexLimits = getInfo(parser);
+    step = (indexLimits.maxIndex - indexLimits.minIndex) / curveLength;
+    cache.set(fileName + '/curveStep', step)
+    return step;
+}
+
+const getCurvesLimits = function(parser, fileName, cache) {
+    let limits = cache.get(fileName + '/curvesLimits');
+    if (limits != null) {
+        return limits;
+    }
+    limits = {};
+    const section = findSectionGroup(parser);
+    section.getCurveMnemonics().forEach((mnemonic) => {
+        const curveData = getCurveData(parser, mnemonic, fileName, cache).filter(v => v != null && !isNaN(v));
+        const min = MathUtil.getMin(curveData);
+        const max = MathUtil.getMax(curveData);
+        limits[mnemonic] = {
+            min: min,
+            max: max
+        };
+    });
+    cache.set(fileName + '/curvesLimits', limits);
+    return limits;
+}
 
 export const las = (app, connector, cache) => {
     const logger = getLogger(import.meta.url);
@@ -109,17 +193,43 @@ export const las = (app, connector, cache) => {
                 });
             }
             const inputCurves = req.body.curves;
+            const limits = req.body.limits;
+            const step = req.body.step;
+            const indexName = req.body.indexName;
             const fileName = path.join(folder, req.params.file);
             const fileContent = await getFileContent(fileName);
             const parser = ParserFactory.getParser(fileContent.toString());
             const curves = [];
             for(let i=0; i < inputCurves.length; i++) {
-                const data = getCurveData(parser, inputCurves[i]);
+                const data = getCurveData(parser, inputCurves[i], fileName, cache, limits, step, indexName);
                 curves.push(data);
             }
             return res.json({
                 'data': curves
             });
+        } catch(error) {
+            logger.error(error);
+            return res.status(status.BAD_REQUEST).json({
+                errors: [status['400_MESSAGE']],
+            });
+        }
+    });
+
+    // Gets min and max values of all curves
+    app.get('/api/v1/las/:file/limits', async (req, res) => {
+        try {
+            if (!req.body) {
+                res.status(status.BAD_REQUEST);
+                return res.json({
+                    errors: [status['400_MESSAGE']],
+                });
+            }
+            const fileName = path.join(folder, req.params.file);
+            const fileContent = await getFileContent(fileName);
+            const parser = ParserFactory.getParser(fileContent.toString());
+            const limits = getCurvesLimits(parser, fileName, cache);
+            const step = getCurveStep(parser, fileName, cache);
+            return res.json({limits, step});
         } catch(error) {
             logger.error(error);
             return res.status(status.BAD_REQUEST).json({

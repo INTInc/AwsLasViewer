@@ -10,12 +10,16 @@ export class LocalConnector extends Connector {
     async getFiles(folder) {
         const fullFolderPath = path.join(this.baseFolder, folder);
         return new Promise((resolve, reject) => {
-            fs.readdir(fullFolderPath, (err, files) => {
-                if(err) {
-                    reject(err);
-                }
-                resolve(files);
-            });
+            if (fs.existsSync(fullFolderPath)) {
+                fs.readdir(fullFolderPath, (err, files) => {
+                    if(err) {
+                        reject(err);
+                    }
+                    resolve(files);
+                });
+            } else {
+                resolve([]);
+            }
         });
     }
     async getFile(fileName, options) {

@@ -38,22 +38,19 @@ import {LogAxisVisualHeader, HeaderType} from '@int/geotoolkit/welllog/header/Lo
 import {LogAxis} from '@int/geotoolkit/welllog/LogAxis';
 import {FillType as LogFillType} from '@int/geotoolkit/welllog/LogFill';
 import {DataBindingRegistry} from '@int/geotoolkit/data/DataBindingRegistry';
-import {HttpClient} from '@int/geotoolkit/http/HttpClient';
 import {Iterator} from '@int/geotoolkit/util/iterator';
 import {NodeOrder} from '@int/geotoolkit/scene/CompositeNode';
 import {LogBlock} from '@int/geotoolkit/welllog/LogBlock';
 import {Annotation} from '@int/geotoolkit/widgets/overlays/Annotation';
 import {LabelPositions as CrossHairLabelPositions} from '@int/geotoolkit/controls/tools/CrossHair';
 import VisualZIndexDirections from './VisualZIndexDirections';
-import {BindingFunction} from './data/awslassource';
+import {AwsLasSource, BindingFunction} from './data/awslassource';
 import {Layer} from '@int/geotoolkit/scene/Layer';
+import {debounce} from "./utils/debounce.js";
+import {defaultTemplate} from './defaultWellLogTemplate';
 
 const DEFAULT_HIGHLIGHT_CLASS = 'highlight';
 const SAVE_TEMPLATE_TIMEOUT = 2000;
-const templatePath = '/api/v1/templates/template.json';
-const urlTemplate = new URL(templatePath, process.env.SERVER);
-const topsPath = '/api/v1/tops/tops.json';
-const urlTops = new URL(topsPath, process.env.SERVER);
 const DEFAULT_DARK_COLOR = '#757575';
 const DEFAULT_LIGHT_COLOR = 'rgba(255, 255, 255, 0.85)';
 const DEFAULT_CROSS_LINE_STYLE = {
@@ -170,7 +167,7 @@ export class LogDisplay {
         this._curvesList = [];
         this._selectedCurves = [];
         this._curveBinding = new BindingFunction();
-        this._topsLayer = new Layer(); 
+        this._topsLayer = new Layer();
         this._widget = this.createWellLogWidget();
         this._navigationWidget = this.createNavigationWidget();
         this._navigationTool = new Navigation({
@@ -205,7 +202,6 @@ export class LogDisplay {
             'autoRootBounds': true
         });
         this._plot.setSize(this._canvas.clientWidth, this._canvas.clientHeight);
-
         this._navigationWidget.fitToHeight();
         this._navigationTool.setVisibleDepthLimits(this._widget.getVisibleDepthLimits());
 
@@ -217,11 +213,38 @@ export class LogDisplay {
         this._widget.on(Events.DepthRangeChanged, this.setDepthLimits.bind(this));
         this._widget.on(Events.VisibleDepthLimitsChanged, this.setVisibleDepthLimits.bind(this));
 
+        this._canLoadData = false;
+        this._widget.on(Events.VisibleDepthLimitsChanged, this.loadData.bind(this));
+
         this._plot.getTool()
             .add([this._widget.getTool(), this._navigationWidget.getTool()]);
 
         this._widget.setCss(new CssStyle(widgetCssStyle));
         this.updateCurvesList();
+
+        this._loadData = debounce(() => {
+            const {depthLimits, step} = this.getDepthLimitsAndStep();
+            AwsLasSource.dataset.fetch(depthLimits, step);
+        }, 500);
+    }
+
+    getDepthLimitsAndStep() {
+        const depthLimits = this._widget.getVisibleDepthLimits();
+        const deviceLimits = this._widget.getVisibleDeviceLimits();
+        const step = Math.max(
+            AwsLasSource.curveStep,
+            (depthLimits.getHigh() - depthLimits.getLow()) / deviceLimits.getHeight() * 2
+        );
+        return {depthLimits, step};
+    }
+
+    set canLoadData(value) {
+        this._canLoadData = value;
+    }
+
+    loadData() {
+        if (!this._canLoadData) return;
+        this._loadData();
     }
 
     /**
@@ -377,7 +400,7 @@ export class LogDisplay {
                 return node instanceof LogAbstractVisual || node instanceof LogAxis;
             }
         }).setLayoutStyle({'left': 0, 'top': 0, 'right': 0, 'bottom': 0});
-        
+
         wellLogWidget.getTrackContainer().addLayer(this._topsLayer);
         this.configureHeaders(wellLogWidget);
         // Add data binding for curve
@@ -385,13 +408,6 @@ export class LogDisplay {
             .add(this._curveBinding);
         wellLogWidget.setData(this._data);
 
-        this.addDefaultTemplate(wellLogWidget, urlTemplate)
-            .then(() => {
-                if (this._widget != null && !this._widget.isDisposed()) {
-                    this.calculateTracksCountWithoutIndexTrack();
-                }
-                this.loadTops(this._widget, urlTops);
-            });
         // Tools
         wellLogWidget.getToolByName('cross-hair')
             .setEnabled(true)
@@ -467,48 +483,37 @@ export class LogDisplay {
     /**
      * Adds template to widget
      * @param {module:geotoolkit/welllog/widgets/WellLogWidget~WellLogWidget} widget widget
-     * @param {string} url URL for template
+     * @param template template
      * @returns {*}
      */
-    addDefaultTemplate (widget, url) {
-        return HttpClient.getInstance().getHttp().get(url, {
-            transformResponse: function (response) {
-                return response.data;
-            }
-        }).then((template) => {
-            if (widget != null && !widget.isDisposed()) {
-                widget.loadTemplate(template);
-            }
-        });
+    loadTemplate (template) {
+        if (this._widget != null && !this._widget.isDisposed()) {
+            this._widget.loadTemplate(template);
+        }
+        this.calculateTracksCountWithoutIndexTrack();
     }
-    loadTops (widget, url) {
-        return HttpClient.getInstance().getHttp().get(url, {
-            'responseType': 'json',
-            transformResponse: function (response) {
-                return response.data;
+
+    loadTops (topsData) {
+        if (this._widget != null && !this._widget.isDisposed()) {
+            const tops = topsData['tops'];
+            this._topsLayer.clearChildren(true);
+            for (let i=0; i < tops.length; ++i) {
+                const top = tops[i];
+                const marker = new LogMarker(top['depth']);
+                marker.setName(top['name']);
+                marker.setLineStyle({'color': top['color'], 'width': 2});
+                marker.setTextStyle({
+                    'color': top['color'],
+                    'alignment': 'left',
+                    'font': '12px sans-serif'
+                });
+                marker.setNameLabel(top['name']);
+                marker.setDepthLabel(top['depth']);
+                marker.setNameLabelPosition(AnchorType.TopCenter);
+                marker.setDepthLabelPosition(AnchorType.BottomCenter);
+                this._topsLayer.addChild(marker)
             }
-        }).then((topsData) => {
-            if (widget != null && !widget.isDisposed()) {
-                const tops = topsData['tops'];
-                this._topsLayer.clearChildren(true);
-                for (let i=0; i < tops.length; ++i) {
-                    const top = tops[i];
-                    const marker = new LogMarker(top['depth']);
-                    marker.setName(top['name']);
-                    marker.setLineStyle({'color': top['color'], 'width': 2});
-                    marker.setTextStyle({
-                        'color': top['color'],
-                        'alignment': 'left',
-                        'font': '12px sans-serif'
-                    });
-                    marker.setNameLabel(top['name']);
-                    marker.setDepthLabel(top['depth']);
-                    marker.setNameLabelPosition(AnchorType.TopCenter);
-                    marker.setDepthLabelPosition(AnchorType.BottomCenter);
-                    this._topsLayer.addChild(marker)
-                }
-            }
-        });
+        }
     }
     /**
      * Adjust widget visible limits
@@ -966,6 +971,20 @@ export class LogDisplay {
     }
 
     /**
+     * Loads default template
+     */
+    loadDefaultTemplate () {
+        if (this._widget == null) {
+            return;
+        }
+        try {
+            this._widget.loadTemplate(defaultTemplate);
+        } catch (e) {
+            warn('ERROR cannot load the template');
+        }
+    }
+
+    /**
      * Loads template from local storage
      */
     loadTemplateFromLocalStorage () {
@@ -1102,8 +1121,8 @@ export class LogDisplay {
         }
 
         for (const index in this._selectedCurves) {
-            const curveData = await data.getCurveSource(this._selectedCurves[index].name);
-            this.addCurveToTrack(curveData, track);
+            const {source} = await data.getCurveSource(this._selectedCurves[index].name);
+            this.addCurveToTrack(source, track);
         }
 
         if (this._oldTrackIndex !== -1) {

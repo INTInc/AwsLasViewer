@@ -104,6 +104,36 @@
       v-model="warningDialog"
       :message="warningMessage"
     />
+    <int-file-select-dialog
+        v-if="showLasFileSelectDialog"
+        :show="showLasFileSelectDialog"
+        :files="lasFilesList"
+        :loading="lasFilesListLoading"
+        title="Load LAS File from Server"
+        @openDialog="loadLasFilesList()"
+        @selectFile="loadLasFileFromServer($event)"
+        @close="showLasFileSelectDialog = false"
+    />
+    <int-file-select-dialog
+        v-if="showTemplatesFileSelectDialog"
+        :show="showTemplatesFileSelectDialog"
+        :files="templatesFilesList"
+        :loading="templatesFilesListLoading"
+        title="Load Template File from Server"
+        @openDialog="loadTemplatesFilesList()"
+        @selectFile="loadTemplateFileFromServer($event)"
+        @close="showTemplatesFileSelectDialog = false"
+    />
+    <int-file-select-dialog
+        v-if="showTopsFileSelectDialog"
+        :show="showTopsFileSelectDialog"
+        :files="topsFilesList"
+        :loading="topsFilesListLoading"
+        title="Load Tops File from Server"
+        @openDialog="loadTopsFilesList()"
+        @selectFile="loadTopsFileFromServer($event)"
+        @close="showTopsFileSelectDialog = false"
+    />
     <input
       id="tpl"
       ref="tpl"
@@ -140,6 +170,9 @@ import IntPrintDialog from 'common/IntPrintDialog.vue';
 import {setNodeProps, getNodeProps, getAjv} from './dialogs/DialogPropertyUtils.js';
 import defaultRenderers from './dialogs/renderers/defaultRenderers.js';
 import IntSnackbar from 'common/IntSnackbar.vue';
+import IntFileSelectDialog from "./common/IntFileSelectDialog.vue";
+
+import {getLasFilesList, getTemplateFile, getTemplatesFilesList, getTopsFile, getTopsFilesList} from "./api";
 
 let wellLogWidget, currentNode;
 export default {
@@ -150,7 +183,7 @@ export default {
         JsonForms,
         IntWellLogToolbar, IntPlotHost, IntPlot, IntList, IntListItem,
         IntSidebar, IntContent, IntContextMenu, IntWellLogContextMenu,
-        IntSnackbar
+        IntSnackbar, IntFileSelectDialog
     },
     data () {
         return {
@@ -171,7 +204,17 @@ export default {
             isNavigationMode: true,
             isHorizontalOrientation: false,
             activeTool: null,
-            showExportDialog: false
+            showExportDialog: false,
+            wellLogNeedsUpdate: true,
+            lasFilesList: [],
+            lasFilesListLoading: false,
+            showLasFileSelectDialog: false,
+            templatesFilesList: [],
+            templatesFilesListLoading: false,
+            showTemplatesFileSelectDialog: false,
+            topsFilesList: [],
+            topsFilesListLoading: false,
+            showTopsFileSelectDialog: false,
         };
     },
     computed: {
@@ -191,31 +234,64 @@ export default {
             this.resize();
             this.componentDidResize = true;
         }
+
+        if (wellLogWidget == null) return;
+        if (this.wellLogNeedsUpdate) {
+            wellLogWidget.fitToHeight();
+            wellLogWidget.canLoadData = true;
+            this.wellLogNeedsUpdate = false;
+        }
     },
     mounted () {
         window.addEventListener('resize', this.resize);
-        AwsLasSource.create('by11.las').then((data) => {
+    },
+    methods: {
+        loadLasFileFromServer: function(fileName) {
+          AwsLasSource.create(fileName).then((data) => {
+            if (wellLogWidget != null) {
+              wellLogWidget.dispose();
+              wellLogWidget = null;
+              this.wellLogNeedsUpdate = true;
+            }
             wellLogWidget = new LogDisplay({
-                'data': data,
-                'host': this.$refs.host.native,
-                'canvas': this.$refs.plot.native,
-                'tooltip': this.$refs.tooltipContainer,
-                'template': this.$refs.tpl
+              'data': data,
+              'host': this.$refs.host.native,
+              'canvas': this.$refs.plot.native,
+              'tooltip': this.$refs.tooltipContainer,
+              'template': this.$refs.tpl
             }).setToolDoubleClickCallback('pick', this.showPropertiesDialogForSelection);
             this.sidebarTopOffset = new URL(window.location.href).searchParams.get('collapsed') ? 90 : 180;
             this.curvesList = wellLogWidget.getCurvesList();
             this.resize();
             wellLogWidget.onSelect(() => {
-                this.isShapeSelected = true;
+              this.isShapeSelected = true;
             });
             wellLogWidget.onEmptySelect(() => {
-                this.isShapeSelected = false;
+              this.isShapeSelected = false;
             });
-        }, (error) => {
+            wellLogWidget.loadDefaultTemplate();
+            this.showLasFileSelectDialog = false;
+            AwsLasSource.getDepthLimitsAndStep = wellLogWidget.getDepthLimitsAndStep.bind(wellLogWidget);
+          }, (error) => {
 
-        });
-    },
-    methods: {
+          });
+        },
+        loadTemplateFileFromServer: function(fileName) {
+          getTemplateFile(fileName).then(template => {
+            if (wellLogWidget != null) {
+              wellLogWidget.loadTemplate(template);
+            }
+            this.showTemplatesFileSelectDialog = false;
+          });
+        },
+        loadTopsFileFromServer: function(fileName) {
+          getTopsFile(fileName).then(tops => {
+            if (wellLogWidget != null) {
+              wellLogWidget.loadTops(tops);
+            }
+            this.showTopsFileSelectDialog = false;
+          });
+        },
         onButtonClick: function (event, value) {
             switch (event) {
                 case ToolbarActions.SidebarToggle:
@@ -259,10 +335,18 @@ export default {
                     this.toggleNavigation();
                     break;
                 case ToolbarActions.TemplateExport:
-                    this.saveTemplateToFile();
+                    if (wellLogWidget != null) {
+                      this.saveTemplateToFile();
+                    } else {
+                      this.showWarningDialog('You should load LAS file first');
+                    }
                     break;
                 case ToolbarActions.TemplateImport:
-                    this.loadTemplateFromFile();
+                    if (wellLogWidget != null) {
+                      this.loadTemplateFromFile();
+                    } else {
+                      this.showWarningDialog('You should load LAS file first');
+                    }
                     break;
                 case ToolbarActions.MoveVisualUp:
                     this.changeVisualZIndex(VisualZIndexDirections.Up);
@@ -276,6 +360,26 @@ export default {
                 case ToolbarActions.MoveVisualBottom:
                     this.changeVisualZIndex(VisualZIndexDirections.Bottom);
                     break;
+                case ToolbarActions.LoadLasFileFromServer:
+                    this.lasFilesListLoading = true;
+                    this.showLasFileSelectDialog = true;
+                  break;
+                case ToolbarActions.LoadTemplateFileFromServer:
+                  if (wellLogWidget != null) {
+                    this.templatesFilesListLoading = true;
+                    this.showTemplatesFileSelectDialog = true;
+                  } else {
+                    this.showWarningDialog('You should load LAS file first');
+                  }
+                  break;
+                case ToolbarActions.LoadTopsFileFromServer:
+                  if (wellLogWidget != null) {
+                    this.topsFilesListLoading = true;
+                    this.showTopsFileSelectDialog = true;
+                  } else {
+                    this.showWarningDialog('You should load LAS file first');
+                  }
+                  break;
             }
         },
         disableAllTools: function () {
@@ -354,10 +458,14 @@ export default {
             this.showPropertiesDialogForSelection(selection);
         },
         saveTemplateToFile: function () {
-            wellLogWidget.saveTemplateToFile();
+            if (wellLogWidget != null) {
+              wellLogWidget.saveTemplateToFile();
+            }
         },
         loadTemplateFromFile: function () {
-            wellLogWidget.loadTemplateFromFile();
+            if (wellLogWidget != null) {
+              wellLogWidget.loadTemplateFromFile();
+            }
         },
         saveTemplateToLocalStorage: function () {
             wellLogWidget.saveTemplateToLocalStorage();
@@ -398,7 +506,19 @@ export default {
         showWarningDialog (message) {
             this.warningMessage = message;
             this.warningDialog = true;
-        }
+        },
+        loadLasFilesList: async function () {
+            this.lasFilesList = await getLasFilesList();
+            this.lasFilesListLoading = false;
+        },
+        loadTemplatesFilesList: async function () {
+          this.templatesFilesList = await getTemplatesFilesList();
+          this.templatesFilesListLoading = false;
+        },
+        loadTopsFilesList: async function () {
+          this.topsFilesList = await getTopsFilesList();
+          this.topsFilesListLoading = false;
+        },
     }
 };
 </script>
