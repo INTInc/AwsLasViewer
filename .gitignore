@@ -11,6 +11,8 @@ client/node_modules
 # dependencies
 /node_modules
 
+.env
+
 # IDEs and editors
 /.idea
 .project

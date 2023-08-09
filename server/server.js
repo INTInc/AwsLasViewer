@@ -1,4 +1,5 @@
 /* eslint-disable linebreak-style */
+import {config} from 'dotenv';
 // Include the cluster module
 import cluster from 'cluster';
 import * as os from 'os';
@@ -10,7 +11,10 @@ import yargs from 'yargs';
 import {hideBin} from 'yargs/helpers';
 import {routes} from './routes';
 import NodeCache from 'node-cache';
-const cache = new NodeCache({ stdTTL: 30 });  
+
+config();
+
+const cache = new NodeCache({ stdTTL: 30 });
 // Code to run if we're in the master process
 if (cluster.isMaster) {
     // Count the machine's CPUs
@@ -26,7 +30,7 @@ if (cluster.isMaster) {
         cluster.fork();
     });
     // Code to run if we're in a worker process
-} else { 
+} else {
     yargs(hideBin(process.argv))
     .command({
       command: '*',
@@ -57,7 +61,7 @@ if (cluster.isMaster) {
                 next();
             }
         });
-        routes(app, argv.mode==='dev', argv.path, cache);
+        routes(app, argv.mode === 'dev', argv.path, cache);
         const port = process.env.PORT || 3000;
         // eslint-disable-next-line new-cap
         const server = http.Server(app);
