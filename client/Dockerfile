@@ -18,7 +18,7 @@ RUN apk add --no-cache \
 RUN apk add gcompat
 
 COPY package*.json ./
-COPY ../.npmrc ./
+COPY ./.npmrc ./
 RUN npm install
 COPY ./ ./
 RUN rm -f .npmrc
