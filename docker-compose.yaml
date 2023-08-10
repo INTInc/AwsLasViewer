@@ -3,18 +3,18 @@ version: '3.6'
 services:
   awslas_server:
     container_name: awslas_server
+    ports:
+      - "3000:3000"
+      - "80:80"
+    build:
+      context: ./server/
+    command: npm run start:dev
+  awslas_client:
+    container_name: awslas_client
     build:
       context: ./client/
     env_file:
       - .env
-    command: npm run start:dev
-    network_mode: service:awslas_client
     depends_on:
-      - awslas_client
-  awslas_client:
-    ports:
-      - "3000:3000"
-      - "80:80"
-    container_name: awslas_client
-    build:
-      context: ./server/
+      - awslas_server
+    network_mode: service:awslas_server

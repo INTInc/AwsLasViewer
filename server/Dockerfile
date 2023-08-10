@@ -20,7 +20,7 @@ RUN apk add gcompat
 
 #ARG NPM_TOKEN
 COPY package*.json ./
-COPY .npmrc ./
+COPY ../.npmrc ./
 RUN npm install
 
 COPY . .
