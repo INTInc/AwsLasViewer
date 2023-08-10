@@ -168,7 +168,8 @@ export const las = (app, connector, cache) => {
     // Gets a file
     app.get('/api/v1/las/:file', async (req, res) => {
         try {
-            const fileName = path.join(folder, req.params.file);
+            // const fileName = path.join(folder, req.params.file);
+            const fileName = folder + '/' + req.params.file;
             const fileContent = await getFileContent(fileName);
             const parser = ParserFactory.getParser(fileContent.toString());
             const curves = getCurvesList(parser);
@@ -196,7 +197,8 @@ export const las = (app, connector, cache) => {
             const limits = req.body.limits;
             const step = req.body.step;
             const indexName = req.body.indexName;
-            const fileName = path.join(folder, req.params.file);
+            // const fileName = path.join(folder, req.params.file);
+            const fileName = folder + '/' + req.params.file;
             const fileContent = await getFileContent(fileName);
             const parser = ParserFactory.getParser(fileContent.toString());
             const curves = [];
@@ -224,7 +226,8 @@ export const las = (app, connector, cache) => {
                     errors: [status['400_MESSAGE']],
                 });
             }
-            const fileName = path.join(folder, req.params.file);
+            // const fileName = path.join(folder, req.params.file);
+            const fileName = folder + '/' + req.params.file;
             const fileContent = await getFileContent(fileName);
             const parser = ParserFactory.getParser(fileContent.toString());
             const limits = getCurvesLimits(parser, fileName, cache);
