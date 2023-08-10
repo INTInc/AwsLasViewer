@@ -3,7 +3,10 @@ An example of Well Log Viewer to read data from AWS LAS files
 In order to run this project, you can use docker and docker compose.
 
 Install docker and docker compose
-Set correct environment variables "AWS_REGION" "AWS_ACCESS_KEY" "AWS_SECRET_KEY" "AWS_S3_BUCKET" "NPM_TOKEN" and "SERVER" in .env file.
+Set correct environment variables "AWS_REGION" "AWS_ACCESS_KEY" "AWS_SECRET_KEY" "AWS_S3_BUCKET" in .env file.
+
+Also you need to set your npm token to .npmrc file.
+
 Run docker-compose up --force-recreate --build
 
 After these steps, application will be running on :80 port of your machine.
