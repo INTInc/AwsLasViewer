@@ -1,4 +1,4 @@
-FROM node:14-alpine
+FROM node:16-alpine
 WORKDIR /usr/awslaslogviewer
 
 # for canvas
@@ -16,16 +16,12 @@ RUN apk add --no-cache \
     python3
 
 #  add glibc and install canvas
-#RUN apk --no-cache add ca-certificates wget  && \
-#    wget -q -O /etc/apk/keys/sgerrand.rsa.pub https://alpine-pkgs.sgerrand.com/sgerrand.rsa.pub && \
-#    wget https://github.com/sgerrand/alpine-pkg-glibc/releases/download/2.29-r0/glibc-2.29-r0.apk && \
-#    apk add glibc-2.29-r0.apk
 RUN apk add gcompat
 
 #ARG NPM_TOKEN
 COPY package*.json ./
-#COPY .npmrc ./
+COPY .npmrc ./
 RUN npm install
 
 COPY . .
-#RUN rm -f .npmrc
+RUN rm -f .npmrc

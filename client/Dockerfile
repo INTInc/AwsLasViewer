@@ -1,4 +1,4 @@
-FROM node:14-alpine as build-stage
+FROM node:16-alpine as build-stage
 WORKDIR /usr/awslaslogviewer/static
 
 RUN apk add --no-cache \
@@ -15,19 +15,13 @@ RUN apk add --no-cache \
     python3
 
 #  add glibc and install canvas
-#RUN apk --no-cache add ca-certificates wget  && \
-#    wget -q -O /etc/apk/keys/sgerrand.rsa.pub https://alpine-pkgs.sgerrand.com/sgerrand.rsa.pub && \
-#    wget https://github.com/sgerrand/alpine-pkg-glibc/releases/download/2.29-r0/glibc-2.29-r0.apk && \
-#    apk add glibc-2.29-r0.apk
 RUN apk add gcompat
 
-#ARG NPM_TOKEN
-ARG SERVER
 COPY package*.json ./
-#COPY .npmrc ./
+COPY .npmrc ./
 RUN npm install
 COPY ./ ./
-#RUN rm -f .npmrc
+RUN rm -f .npmrc
 RUN npm run build:prod
 
 FROM nginx:1.14-alpine as deploy-stage

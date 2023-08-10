@@ -1,40 +1,36 @@
 import creds from './awscreds.js';
-import S3 from 'aws-sdk/clients/s3.js';
+import {GetObjectCommand, ListObjectsCommand, S3Client} from '@aws-sdk/client-s3';
 
 import {Connector} from '../connector';
 export class AWSConnector extends Connector {
     constructor() {
         super();
-        this.s3 = new S3({
+        this.s3 = new S3Client({
             region: creds.region,
-            accessKeyId: creds.accessKeyId,
-            secretAccessKey: creds.secretAccessKey,
+            credentials: {
+                accessKeyId: creds.accessKeyId,
+                secretAccessKey: creds.secretAccessKey,
+            }
           });
     }
     async getFiles(folder) {
-        return new Promise((resolve, reject) => {
-            this.s3.listObjects({
-                Bucket: creds.bucket,
-                Prefix: folder
-            }, (err, data) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    const files = data.Contents.map((fileObject) => fileObject.Key.split('/')[1]);
-                    resolve(files);
-                }
-            });
+        const cmd = new ListObjectsCommand({
+            Bucket: creds.bucket,
+            Prefix: folder
         });
+        const resp = await this.s3.send(cmd);
+        const files = resp.Contents
+            .map((f) => f.Key.split('/')[1])
+            .filter((f) => f !== '');
+        return files;
     }
-    async getFile(path) {
-        return new Promise((resolve, reject) => {
-          this.s3.getObject({Bucket: creds.bucket, Key: path}, (err, data) => {
-            if (err) {
-                reject(err);
-            } else {
-                resolve(data.Body);
-            }
-          });
+    async getFile(path, options) {
+        const cmd = new GetObjectCommand({
+            Bucket: creds.bucket,
+            Key: path
         });
-    };      
+        const resp = await this.s3.send(cmd);
+        const content = await resp.Body.transformToString(options['encoding']);
+        return content;
+    };
 }

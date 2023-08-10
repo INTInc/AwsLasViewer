@@ -61,7 +61,7 @@ if (cluster.isMaster) {
                 next();
             }
         });
-        routes(app, argv.mode === 'dev', argv.path, cache);
+        routes(app, argv.mode !== 'dev', argv.path, cache);
         const port = process.env.PORT || 3000;
         // eslint-disable-next-line new-cap
         const server = http.Server(app);
