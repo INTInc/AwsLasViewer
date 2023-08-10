@@ -18,7 +18,9 @@ export const tops = (app, connector) => {
      // Gets a file
      app.get('/api/v1/tops/:file', async (req, res) => {
         try {
-            const fileName = path.join(folder, req.params.file);
+            const fileName = path
+                .join(folder, req.params.file)
+                .replace('\\', '/');
             const fileContent = await connector.getFile(fileName, {'encoding': 'utf8'});
             return res.json(JSON.parse(fileContent));
         } catch(error) {

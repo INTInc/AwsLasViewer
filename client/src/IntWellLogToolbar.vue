@@ -38,6 +38,7 @@
         title="Curve/Track Drag'n'Drop Mode"
         icon="mdi-swap-horizontal-bold"
         :active="isToolActive(Tools.CurveDragAndDrop)"
+        disabled
         @click="$emit('button-click', ToolbarActions.CurveDragAndDrop)"
       />
       <int-toolbar-divider />
