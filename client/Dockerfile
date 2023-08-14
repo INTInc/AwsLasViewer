@@ -1,4 +1,4 @@
-FROM node:16-alpine as build-stage
+FROM node:18-alpine
 WORKDIR /usr/awslaslogviewer/static
 
 RUN apk add --no-cache \

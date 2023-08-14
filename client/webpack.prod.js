@@ -1,19 +1,24 @@
-const path = require('path');
-const VueLoaderPlugin = require('vue-loader/lib/plugin');
-const VuetifyLoaderPlugin = require('vuetify-loader/lib/plugin');
-const MonacoWebpackPlugin = require('monaco-editor-webpack-plugin');
-const TerserPlugin = require('terser-webpack-plugin');
 const webpack = require('webpack');
+const path = require('path');
+const {VueLoaderPlugin} = require('vue-loader');
+const {VuetifyLoaderPlugin} = require('vuetify-loader');
+const TerserPlugin = require('terser-webpack-plugin');
+
 module.exports = {
     mode: 'development',
     output: {
         filename: 'bundle.js',
-        publicPath: './dist/'
+        path: path.resolve(__dirname, './dist/')
     },
     entry: './src/index.js',
     devServer: {
         hot: true,
-        publicPath: 'http://localhost:8080/dist'
+        devMiddleware: {
+            publicPath: 'http://localhost:8080/dist'
+        },
+        static: [
+            {directory: path.resolve(__dirname, './'), watch: false}
+        ]
     },
     performance: {
         hints: false
@@ -32,6 +37,12 @@ module.exports = {
     },
     module: {
         rules: [
+            // {
+            //     test: /\.m?js/,
+            //     resolve: {
+            //         fullySpecified: false
+            //     }
+            // },
             {
                 test: /\.js$/,
                 enforce: 'pre',
@@ -48,20 +59,6 @@ module.exports = {
                 }]
             },
             {
-                test: /\.js$/,
-                include: [
-                    path.resolve(__dirname, 'src'),
-                    // this for IE11 only
-                    new RegExp('node_modules\\' + path.sep + '(vuetify|jsonforms|ono|json-schema-ref-parser)')
-                ],
-                use: {
-                    loader: 'babel-loader',
-                    options: {
-                        presets: ['@babel/preset-env', 'vue']
-                    }
-                }
-            },
-            {
                 test: /\.sass$/i,
                 use: [
                     'vue-style-loader',
@@ -70,7 +67,7 @@ module.exports = {
                         loader: 'sass-loader',
                         options: {
                             implementation: require('sass'),
-                            prependData: `@import "./src/assets/css/main.scss"`
+                            additionalData: `@import "./src/assets/css/main.scss"`
                         }
                     }
                 ]
@@ -85,48 +82,65 @@ module.exports = {
                         loader: 'sass-loader',
                         options: {
                             implementation: require('sass'),
-                            prependData: `@import "./src/assets/css/main.scss";`
+                            additionalData: `@import "./src/assets/css/main.scss";`
                         }
                     }
                 ]
             },
             {
+                resourceQuery: /raw/,
+                type: 'asset/source'
+            },
+            {
                 test: /\.css$/,
-                use: ['style-loader', 'css-loader']
+                resourceQuery: {not: [/raw/]},
+                use: [
+                    {
+                        loader: 'vue-style-loader'
+                    },
+                    {
+                        loader: 'css-loader',
+                        options: {
+                            modules: {
+                                auto: true
+                            }
+                        }
+                    }
+                ]
             },
             {
                 test: /\.vue$/,
                 loader: 'vue-loader'
             },
             {
-                test: /\.(ttf|svg|woff2|eot|woff|csv)$/,
-                loader: 'url-loader'
-            },
-            {
-                test: /\.(png|jpe?g|gif)$/i,
-                options: {
-                    esModule: false
-                },
-                loader: 'url-loader'
+                test: /\.(png|jpe?g|gif|ttf|svg|woff2|eot|woff|csv)$/,
+                type: 'asset/resource'
             }
         ]
     },
     plugins: [
         new VueLoaderPlugin(),
         new VuetifyLoaderPlugin(),
-        new MonacoWebpackPlugin({
-            // available options are documented at https://github.com/Microsoft/monaco-editor-webpack-plugin#options
-            languages: ['xml']
+        new webpack.ProvidePlugin({
+            Buffer: ['buffer', 'Buffer']
         }),
         new webpack.DefinePlugin({
-            'process.env.SERVER': JSON.stringify(process.env.SERVER || 'http://localhost:3000')
+            'process.env.SERVER': JSON.stringify(process.env.SERVER || 'http://localhost:3000'),
+            'process.platform': JSON.stringify(process.platform),
+            'process.browser': 'true'
         })
     ],
     resolve: {
         modules: ['node_modules', 'src'],
         alias: {
-            'vue': 'vue/dist/vue.esm.js',
+            'vue': 'vue/dist/vue.js',
             'vue-color': 'vue-color/dist/vue-color.min.js'
+        },
+        fallback: {
+            buffer: require.resolve('buffer'),
+            http: false,
+            https: false,
+            url: require.resolve('url')
         }
     },
     stats: 'errors-only'

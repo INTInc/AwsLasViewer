@@ -42,12 +42,12 @@ import {Iterator} from '@int/geotoolkit/util/iterator';
 import {NodeOrder} from '@int/geotoolkit/scene/CompositeNode';
 import {LogBlock} from '@int/geotoolkit/welllog/LogBlock';
 import {Annotation} from '@int/geotoolkit/widgets/overlays/Annotation';
-import {LabelPositions as CrossHairLabelPositions} from '@int/geotoolkit/controls/tools/CrossHair';
 import VisualZIndexDirections from './VisualZIndexDirections';
 import {AwsLasSource, BindingFunction} from './data/awslassource';
 import {Layer} from '@int/geotoolkit/scene/Layer';
 import {debounce} from "./utils/debounce.js";
 import {defaultTemplate} from './defaultWellLogTemplate';
+import {AnnotationLocation} from '@int/geotoolkit/layout/AnnotationLocation';
 
 const DEFAULT_HIGHLIGHT_CLASS = 'highlight';
 const SAVE_TEMPLATE_TIMEOUT = 2000;
@@ -174,8 +174,8 @@ export class LogDisplay {
             'layer': this._navigationWidget.getToolByName('cross-hair').getManipulatorLayer(),
             'background': 'rgba(155, 155, 155, 0.3)'
         });
-        this._navigationTool.addListener(NavigationEvents.NavigationStart, this.adjustVisibleLimits.bind(this))
-            .addListener(NavigationEvents.NavigationEnd, this.adjustVisibleLimits.bind(this));
+        this._navigationTool.on(NavigationEvents.NavigationStart, this.adjustVisibleLimits.bind(this))
+            .on(NavigationEvents.NavigationEnd, this.adjustVisibleLimits.bind(this));
 
         this._navigationWidget.getTool().add(this._navigationTool);
 
@@ -205,9 +205,9 @@ export class LogDisplay {
         this._navigationWidget.fitToHeight();
         this._navigationTool.setVisibleDepthLimits(this._widget.getVisibleDepthLimits());
 
-        this._navigationTool.addListener(NavigationEvents.DepthRangeChanged,
-            (sender, eventArgs) => {
-                this._widget.setVisibleDepthLimits(eventArgs['limits']);
+        this._navigationTool.on(NavigationEvents.DepthRangeChanged,
+            (event, sender, eventArgs) => {
+                this._widget.setVisibleDepthLimits(eventArgs.getLimits());
             });
 
         this._widget.on(Events.DepthRangeChanged, this.setDepthLimits.bind(this));
@@ -284,10 +284,10 @@ export class LogDisplay {
         DataBindingRegistry.getInstance()
             .remove(this._curveBinding);
         if (this.onSelectEventHandler != null) {
-            this._widget.getToolByName('pick').removeListener(SelectionEvents.onSelectionChanged, this.onSelectEventHandler);
+            this._widget.getToolByName('pick').off(SelectionEvents.onSelectionChanged, this.onSelectEventHandler);
         }
         if (this.onEmptySelectHandler != null) {
-            this._widget.getToolByName('pick').removeListener(SelectionEvents.onSelectionChanged, this.onEmptySelectHandler);
+            this._widget.getToolByName('pick').off(SelectionEvents.onSelectionChanged, this.onEmptySelectHandler);
         }
         if (this._plot) {
             this._plot.dispose();
@@ -411,14 +411,14 @@ export class LogDisplay {
         // Tools
         wellLogWidget.getToolByName('cross-hair')
             .setEnabled(true)
-            .setLabelsTextConverter(CrossHairLabelPositions.West, (x, y) => {
+            .setLabelsTextConverter(AnnotationLocation.West, (x, y) => {
                 if (wellLogWidget.getIndexType() === 'time') return getDateTime(y);
                 return isNaN(y) ? '' : y.toFixed(2);
             });
 
         wellLogWidget.getToolByName('cursor-tracking')
             .getToolByName('index-cross-hair')
-            .setLabelsTextConverter(CrossHairLabelPositions.West, (x, y) => wellLogWidget.getIndexType() === 'time' ?
+            .setLabelsTextConverter(AnnotationLocation.West, (x, y) => wellLogWidget.getIndexType() === 'time' ?
                 getDateTime(y) : (isNaN(y) ? '' : y.toFixed(2))
             );
         const selector = new Selector();
@@ -458,7 +458,7 @@ export class LogDisplay {
             return null;
         }
         this._widget.getToolByName(toolName)
-            .addListener(SelectionEvents.onDoubleClick, (sender, eventArgs) => {
+            .on(SelectionEvents.onDoubleClick, (event, sender, eventArgs) => {
                 if (eventArgs.getSelection().length) {
                     callback(eventArgs.getSelection());
                 }
@@ -579,7 +579,7 @@ export class LogDisplay {
             .setEnabled(false);
 
         this._widget.getToolByName('pick')
-            .addListener(SelectionEvents.onSelectionChanged, (sender, eventArgs) => {
+            .on(SelectionEvents.onSelectionChanged, (event, sender, eventArgs) => {
                 if (eventArgs.getSelection().length === 0) {
                     return;
                 }
@@ -1185,15 +1185,15 @@ export class LogDisplay {
      */
     onSelect (callback) {
         if (this.onSelectEventHandler != null) {
-            this._widget.getToolByName('pick').removeListener(SelectionEvents.onSelectionChanged, this.onSelectEventHandler);
+            this._widget.getToolByName('pick').off(SelectionEvents.onSelectionChanged, this.onSelectEventHandler);
         }
-        this.onSelectEventHandler = (sender, eventArgs) => {
+        this.onSelectEventHandler = (event, sender, eventArgs) => {
             if (eventArgs.getSelection().length === 0) {
                 return;
             }
             callback(sender, eventArgs);
         };
-        this._widget.getToolByName('pick').addListener(SelectionEvents.onSelectionChanged, this.onSelectEventHandler);
+        this._widget.getToolByName('pick').on(SelectionEvents.onSelectionChanged, this.onSelectEventHandler);
     }
 
     /**
@@ -1202,15 +1202,15 @@ export class LogDisplay {
      */
     onEmptySelect (callback) {
         if (this.onEmptySelectHandler != null) {
-            this._widget.getToolByName('pick').removeListener(SelectionEvents.onSelectionChanged, this.onEmptySelectHandler);
+            this._widget.getToolByName('pick').off(SelectionEvents.onSelectionChanged, this.onEmptySelectHandler);
         }
-        this.onEmptySelectHandler = (sender, eventArgs) => {
+        this.onEmptySelectHandler = (event, sender, eventArgs) => {
             if (eventArgs.getSelection().length !== 0) {
                 return;
             }
             callback(sender, eventArgs);
         };
-        this._widget.getToolByName('pick').addListener(SelectionEvents.onSelectionChanged, this.onEmptySelectHandler);
+        this._widget.getToolByName('pick').on(SelectionEvents.onSelectionChanged, this.onEmptySelectHandler);
     }
 
     moveSelectedVisual (direction) {
