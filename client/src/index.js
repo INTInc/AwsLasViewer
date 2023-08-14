@@ -1,4 +1,3 @@
-import 'babel-polyfill';
 import 'core-js/stable/object';
 import 'core-js/stable/symbol';
 import 'core-js/stable/array/from';
