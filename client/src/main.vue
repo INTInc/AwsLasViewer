@@ -7,7 +7,7 @@
 </template>
 
 <script>
-import Vuetify from 'vuetify/lib';
+import Vuetify from 'vuetify';
 import LogViewer from './LogViewer.vue';
 export default {
     name: 'INTViewer',

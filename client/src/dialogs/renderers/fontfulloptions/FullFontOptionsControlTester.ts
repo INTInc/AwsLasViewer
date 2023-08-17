@@ -5,7 +5,7 @@ const isFullFontOptionsControl = and(
     or(
         and(
             schemaMatches((schema) => schema.hasOwnProperty('visualtype')),
-            schemaMatches((schema) => schema['visualtype'] === 'fullfontoptions')
+            schemaMatches((schema: any) => schema['visualtype'] === 'fullfontoptions')
         ),
         optionIs('fullfontoptions', true)
     )

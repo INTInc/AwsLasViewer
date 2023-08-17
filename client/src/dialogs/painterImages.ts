@@ -10,7 +10,7 @@ import {SymbolShape} from '@int/geotoolkit/scene/shapes/SymbolShape';
 import {Rect} from '@int/geotoolkit/util/Rect';
 import {NodeExport} from '@int/geotoolkit/scene/exports/NodeExport';
 
-const generatePainterImage = (painter) => {
+const generatePainterImage = (painter: SymbolShape.PainterFunction) => {
     const symbol = new SymbolShape({
         'ax': 8,
         'ay': 8,

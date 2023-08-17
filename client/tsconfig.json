@@ -1,0 +1,22 @@
+{
+    "compilerOptions": {
+      "target": "ES2022",
+      "noImplicitAny": true,
+      "isolatedModules": true,
+      "resolveJsonModule": true,
+      "module": "es2020",
+      "lib": [
+        "DOM",
+        "ES2020",
+        "ES2021.String"
+      ],
+      "allowJs": true,
+      "outDir": "./dist/out-tsc",
+      "downlevelIteration": true,
+      "moduleResolution": "node",
+      "baseUrl": "./",
+      "types": ["node"],
+      "experimentalDecorators": true,
+      "esModuleInterop": true,
+    }
+  }

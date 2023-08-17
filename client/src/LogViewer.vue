@@ -159,16 +159,16 @@ import IntContextMenu from 'common/IntContextMenu.vue';
 import IntWellLogContextMenu from './IntWellLogContextMenu.vue';
 import IntWellLogToolbar from './IntWellLogToolbar.vue';
 import ToolbarActions from './ToolbarActions';
-import VisualZIndexDirections from './VisualZIndexDirections';
+import {VisualZIndexDirections} from './VisualZIndexDirections';
 import Tools from './Tools';
 import draggable from 'vuedraggable';
 import {materialRenderers} from 'jsonforms-vue-material';
 import {JsonForms} from 'jsonforms-vue';
-import {uischemas} from './dialogs/uischemas.js';
+import {uischemas} from './dialogs/uischemas';
 
 import IntPrintDialog from 'common/IntPrintDialog.vue';
-import {setNodeProps, getNodeProps, getAjv} from './dialogs/DialogPropertyUtils.js';
-import defaultRenderers from './dialogs/renderers/defaultRenderers.js';
+import {setNodeProps, getNodeProps, getAjv} from './dialogs/DialogPropertyUtils';
+import defaultRenderers from './dialogs/renderers/defaultRenderers';
 import IntSnackbar from 'common/IntSnackbar.vue';
 import IntFileSelectDialog from "./common/IntFileSelectDialog.vue";
 
@@ -390,7 +390,6 @@ export default {
             if (!this.propertiesDialogActive || value.errors.length > 0) return;
             setNodeProps(currentNode, value.data);
             this.propertiesDialogData = getNodeProps(currentNode, this.schema);
-            wellLogWidget.buildDocumentView();
         },
         showPropertiesDialogForSelection: function (selection) {
             currentNode = wellLogWidget.getSelectedVisual(selection);

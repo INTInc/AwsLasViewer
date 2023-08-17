@@ -34,7 +34,7 @@
 <script>
 
 import {VNavigationDrawer} from 'vuetify/lib';
-import PlotHostHeightUtil from '../utils/PlotHostHeightUtil';
+import PlotHostHeightUtil from 'utils/PlotHostHeightUtil';
 export default {
     name: 'IntSidebar',
     components: {VNavigationDrawer},

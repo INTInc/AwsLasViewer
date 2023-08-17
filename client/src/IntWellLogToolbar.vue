@@ -48,19 +48,19 @@
       >
         <int-menu-item
           title="Linear"
-          @click="$emit('button-click', ToolbarActions.AddTrack, 'linear')"
+          @click="$emit('button-click', ToolbarActions.AddTrack, 'LinearTrack')"
         />
         <int-menu-item
           title="Index"
-          @click="$emit('button-click', ToolbarActions.AddTrack, 'index')"
+          @click="$emit('button-click', ToolbarActions.AddTrack, 'IndexTrack')"
         />
         <int-menu-item
           title="Logarithmic"
-          @click="$emit('button-click', ToolbarActions.AddTrack, 'log')"
+          @click="$emit('button-click', ToolbarActions.AddTrack, 'LogTrack')"
         />
         <int-menu-item
           title="Tangential"
-          @click="$emit('button-click', ToolbarActions.AddTrack, 'tangential')"
+          @click="$emit('button-click', ToolbarActions.AddTrack, 'TangentialTrack')"
         />
       </int-menu>
       <int-button

@@ -1,19 +1,27 @@
 import {DataSource} from '@int/geotoolkit/data/DataSource';
 import {obfuscate} from '@int/geotoolkit/lib';
 import {LogCurveDataSource} from '@int/geotoolkit/welllog/data/LogCurveDataSource';
-import {LogCurve, LimitsType as LogCurveLimitsType} from '@int/geotoolkit/welllog/LogCurve';
+import {LogCurve} from '@int/geotoolkit/welllog/LogCurve';
 import {DataTable} from '@int/geotoolkit/data/DataTable';
 import {Range} from '@int/geotoolkit/util/Range';
 import {MathUtil} from '@int/geotoolkit/util/MathUtil';
 import {DataSet} from '@int/geotoolkit/data/DataSet';
 import {Events as DataEvents} from '@int/geotoolkit/data/Events';
+import {Node} from "@int/geotoolkit/scene/Node";
+import {DataBinding} from "@int/geotoolkit/data/DataBinding";
 import {getCurvesData, getCurvesLimits, getLasInfo} from "../api";
 
-export class BindingFunction {
-    accept (node) {
+type CurveType = {
+    description: string;
+    title: string;
+    unit: string;
+};
+
+export class BindingFunction extends DataBinding {
+    accept (node: Node): boolean {
         return node instanceof LogCurve;
     }
-    async bind (curve, data) {
+    async bind (curve: LogCurve, data: AwsLasSource) {
         if (data == null || curve.isDisposed()) {
             return;
         }
@@ -50,20 +58,41 @@ export class BindingFunction {
             curve.setData(null);
         }
     }
-    unbind(curve) {
+    unbind(curve: LogCurve) {
         const curveName = curve.getName();
         AwsLasSource.visibleCurves = AwsLasSource.visibleCurves.filter(v => v !== curveName);
     }
 }
+type Options = {
+    range: Range;
+    curves: CurveType[];
+    index: CurveType;
+    file: string;
+};
 export class AwsLasSource extends DataSource {
-    static curvesLimits = null;
-    static curveStep = null;
-    static getDepthLimitsAndStep = null;
-    static visibleCurves = [];
-    static dataset = null;
-    static cachedIndex = null;
+    static curvesLimits: {
+        [key: string]: {
+            min: number;
+            max: number;
+        }
+    } = null;
+    static curveStep: number = null;
+    static getDepthLimitsAndStep: () => {depthLimits: Range, step: number} = null;
+    static visibleCurves: string[] = [];
+    static dataset: DataSet = null;
+    static cachedIndex: {
+        limits: Range;
+        scale: number;
+        data: number[]
+    } = null;
 
-    constructor(options) {
+    private range: Range;
+    private curves: CurveType[];
+    private index: CurveType;
+    private file: string;
+    private indexType: string;
+    private dataTables: DataTable[] = []
+    constructor(options: Options) {
         super();
         this.range = options.range;
         this.curves = options.curves;
@@ -80,7 +109,6 @@ export class AwsLasSource extends DataSource {
         AwsLasSource.visibleCurves = [];
         AwsLasSource.cachedIndex = null;
 
-        this.dataTables = [];
         for (const curve of this.curves) {
             const dataTable = new DataTable({
                 cols: [
@@ -151,12 +179,12 @@ export class AwsLasSource extends DataSource {
         return this.indexType;
     }
 
-    findTableIndex(curveName) {
+    findTableIndex(curveName: string) {
         const tableIndex = this.dataTables.findIndex(dt => dt.getMetaData()['name'] === curveName);
         return (tableIndex === -1 ? null : tableIndex);
     }
 
-    async getCurveSource(curveName) {
+    async getCurveSource(curveName: string) {
         let lowerCaseName = curveName.toLowerCase();
         let curveInfo = this.curves.find(element => element['title'].toLowerCase() === lowerCaseName);
         if (!curveInfo) return {'source': null, 'tableIndex': null};
@@ -176,7 +204,7 @@ export class AwsLasSource extends DataSource {
      * @param {string} fileName
      * @returns {AwsLasSource}
      */
-    static async create(fileName) {
+    static async create(fileName: string) {
         const data = await getLasInfo(fileName);
         const {limits, step} = await getCurvesLimits(fileName);
         AwsLasSource.curvesLimits = limits;
@@ -184,7 +212,7 @@ export class AwsLasSource extends DataSource {
         if (data && data['info'] && data['curves'] && data['curves'].length > 0) {
             const range = new Range(data['info']['minIndex'], data['info']['maxIndex']);
             const curves = data['curves'];
-            let index = curves.find(element => element['title'] === 'DEPTH');
+            let index = curves.find((element: CurveType) => element['title'] === 'DEPTH');
             if (!index) {
                 index = curves[0];
             }

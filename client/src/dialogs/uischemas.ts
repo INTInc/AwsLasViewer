@@ -15,7 +15,7 @@ import {DiscreteGradientColorProvider} from '@int/geotoolkit/util/DiscreteGradie
 import {Annotation} from '@int/geotoolkit/widgets/overlays/Annotation';
 import painterImages from './painterImages';
 
-const generateLineStyleImage = (style) => {
+const generateLineStyleImage = (style: 'Solid' | 'Dash' | 'Dot' | 'DashDot' | 'ShortDash' | 'LongDash' | 'DashDotDot' | 'DashLongDash') => {
     const line = new Line({
         'from': new Point(2, 8),
         'to': new Point(130, 8)
@@ -24,7 +24,7 @@ const generateLineStyleImage = (style) => {
     return NodeExport.exportToImageUrl(line, 132, 16, false, false, new Rect(0, 0, 132, 16));
 };
 
-const generateLineDecorationImage = (style) => {
+const generateLineDecorationImage = (style: string) => {
     const line = new Line({
         'from': new Point(2, 14),
         'to': new Point(130, 14)
@@ -66,22 +66,17 @@ const FILL_PATTERNS = {
         '/7EeALxIeuPpgXoL9QevUTTjWCQAAAAASUVORK5CYII='
 };
 
-Object.keys(FILL_PATTERNS).forEach((patternName) => {
-    PatternFactory.getInstance().addPattern(FILL_PATTERNS[patternName], {'name': patternName, 'category': 'fillPatterns'});
+const patternValues = Object.values(FILL_PATTERNS);
+Object.keys(FILL_PATTERNS).forEach((patternName, index) => {
+    PatternFactory.getInstance()
+        .addPattern(patternValues[index], {'name': patternName, 'category': 'fillPatterns'});
 });
 
-const colorBarItems = {};
-const colorScaleNames = [];
+const colorBarItems: Record<string, string> = {};
+const colorScaleNames = Object.values(KnownScales);
 
-for (const scale in KnownScales) {
-    if (KnownScales.hasOwnProperty(scale)) {
-        if (scale.toLowerCase() === KnownScales[scale]) {
-            colorScaleNames.push(KnownScales[scale]);
-        }
-    }
-}
 colorScaleNames.forEach((scaleName) => {
-    colorBarItems[scaleName] = new DiscreteGradientColorProvider({bins: 320})
+    colorBarItems[scaleName.toUpperCase()] = new DiscreteGradientColorProvider({bins: 320})
         .setScale(scaleName)
         .exportToImage(240, 20, false)
         .getBase64();

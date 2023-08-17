@@ -1,12 +1,13 @@
 import {HttpClient} from "@int/geotoolkit/http/HttpClient";
+import {Range} from "@int/geotoolkit/util/Range";
 
 const LAS_PATH = '/api/v1/las';
 const TEMPLATES_PATH = '/api/v1/templates';
 const TOPS_PATH = '/api/v1/tops';
 
-const lasUrl = new URL(LAS_PATH, process.env.SERVER);
-const templatesUrl = new URL(TEMPLATES_PATH, process.env.SERVER);
-const topsUrl = new URL(TOPS_PATH, process.env.SERVER);
+const lasUrl = new URL(LAS_PATH, process.env.SERVER).toString();
+const templatesUrl = new URL(TEMPLATES_PATH, process.env.SERVER).toString();
+const topsUrl = new URL(TOPS_PATH, process.env.SERVER).toString();
 
 const http = HttpClient.getInstance().getHttp();
 
@@ -15,27 +16,27 @@ const http = HttpClient.getInstance().getHttp();
  * @param {string} file file name/path
  * @returns {Promise}
  */
-export const getLasInfo = async function (file) {
+export const getLasInfo = async function (file: string) {
     const url = lasUrl + '/' + encodeURIComponent(file);
     return http.get(url, {
-        'responseType': 'json',
-        'transformResponse': function (response) {
+        'responsetype': 'json',
+        'transformresponse': function (response) {
             return response['data'];
         }
     });
 };
 
-export const getCurvesLimits = async function (file) {
+export const getCurvesLimits = async function (file: string) {
     const url = lasUrl + '/' + encodeURIComponent(file) + '/limits';
     return http.get(url, {
-        'responseType': 'json',
-        'transformResponse': function (response) {
+        'responsetype': 'json',
+        'transformresponse': function (response) {
             return response['data'];
         }
     });
 };
 
-export const getCurvesData = async function (file, curves, limits, step, indexName) {
+export const getCurvesData = async function (file: string, curves: string[], limits: Range, step: number, indexName: string) {
     const url = lasUrl + '/' + encodeURIComponent(file) + '/curves';
     const data = JSON.stringify({
         'curves': curves,
@@ -45,8 +46,8 @@ export const getCurvesData = async function (file, curves, limits, step, indexNa
     });
     return http.post(url, data, {
         'headers': {'Content-Type': 'application/json'},
-        'responseType': 'json',
-        'transformResponse': function (response) {
+        'responsetype': 'json',
+        'transformresponse': function (response) {
             return response['data'];
         }
     });
@@ -54,8 +55,8 @@ export const getCurvesData = async function (file, curves, limits, step, indexNa
 
 export const getLasFilesList = async function () {
     return http.get(lasUrl, {
-        'responseType': 'json',
-        'transformResponse': function (response) {
+        'responsetype': 'json',
+        'transformresponse': function (response) {
             return response['data'];
         }
     });
@@ -63,8 +64,8 @@ export const getLasFilesList = async function () {
 
 export const getTemplatesFilesList = async function () {
     return http.get(templatesUrl, {
-        'responseType': 'json',
-        'transformResponse': function (response) {
+        'responsetype': 'json',
+        'transformresponse': function (response) {
             return response['data'];
         }
     });
@@ -72,26 +73,26 @@ export const getTemplatesFilesList = async function () {
 
 export const getTopsFilesList = async function () {
     return http.get(topsUrl, {
-        'responseType': 'json',
-        'transformResponse': function (response) {
+        'responsetype': 'json',
+        'transformresponse': function (response) {
             return response['data'];
         }
     });
 };
 
-export const getTemplateFile = async function (fileName) {
+export const getTemplateFile = async function (fileName: string) {
     return http.get(templatesUrl + '/' + fileName, {
         //'responseType': 'json',
-        'transformResponse': function (response) {
+        'transformresponse': function (response) {
             return response['data'];
         }
     });
 };
 
-export const getTopsFile = async function (fileName) {
+export const getTopsFile = async function (fileName: string) {
     return http.get(topsUrl + '/' + fileName, {
-        'responseType': 'json',
-        'transformResponse': function (response) {
+        'responsetype': 'json',
+        'transformresponse': function (response) {
             return response['data'];
         }
     });

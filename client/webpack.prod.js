@@ -10,7 +10,7 @@ module.exports = {
         filename: 'bundle.js',
         path: path.resolve(__dirname, './dist/')
     },
-    entry: './src/index.js',
+    entry: './src/index.ts',
     devServer: {
         hot: true,
         devMiddleware: {
@@ -44,19 +44,13 @@ module.exports = {
             //     }
             // },
             {
-                test: /\.js$/,
-                enforce: 'pre',
-                use: [{
-                    loader: 'source-map-loader',
+                test: new RegExp(`src\\${path.sep}.*\.ts$`),
+                use: {
+                    loader: 'ts-loader',
                     options: {
-                        filterSourceMappingUrl: (url, resourcePath) => {
-                            if (/node_modules/i.test(resourcePath)) {
-                                return false;
-                            }
-                            return 'skip';
-                        }
+                        configFile: path.join(__dirname, './tsconfig.json')
                     }
-                }]
+                }
             },
             {
                 test: /\.sass$/i,
@@ -134,8 +128,9 @@ module.exports = {
         modules: ['node_modules', 'src'],
         alias: {
             'vue': 'vue/dist/vue.js',
-            'vue-color': 'vue-color/dist/vue-color.min.js'
+            'utils': path.resolve(__dirname, 'src/utils')
         },
+        extensions: ['.ts', '.js'],
         fallback: {
             buffer: require.resolve('buffer'),
             http: false,

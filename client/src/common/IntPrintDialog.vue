@@ -64,7 +64,7 @@ import {materialRenderers} from 'jsonforms-vue-material';
 import {JsonForms} from 'jsonforms-vue';
 
 import IntLoader from './IntLoader.vue';
-import {schema, uischema} from './IntPrintDialogSchemas.js';
+import {schema, uischema} from './IntPrintDialogSchemas';
 
 export default {
     name: 'PrintDialog',
