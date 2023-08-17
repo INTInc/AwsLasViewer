@@ -40,7 +40,7 @@ export default {
         }
     },
     methods: {
-        convertValueToNewMeasure (newMeasure) {
+        convertValueToNewMeasure (newMeasure: string) {
             return UnitFactory.getInstance().getUnit(this.measure).convert(this.value, newMeasure);
         }
     }

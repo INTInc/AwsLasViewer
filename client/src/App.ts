@@ -16,8 +16,8 @@ import {BrowserInfo} from '@int/geotoolkit/util/BrowserInfo';
 import {TrackDirection} from '@int/geotoolkit/welllog/TrackDirection';
 import {ColorUtil} from '@int/geotoolkit/util/ColorUtil';
 import {DecimalFormat} from '@int/geotoolkit/util/DecimalFormat';
-import {Navigation, Events as NavigationEvents} from '@int/geotoolkit/welllog/widgets/tools/Navigation';
-import {Events as SelectionEvents} from '@int/geotoolkit/controls/tools/Selection';
+import {Events as NavigationEvents, Navigation} from '@int/geotoolkit/welllog/widgets/tools/Navigation';
+import {Events as SelectionEvents, Selection} from '@int/geotoolkit/controls/tools/Selection';
 import {ToolTipTool} from '@int/geotoolkit/controls/tools/ToolTipTool';
 import {Selector} from '@int/geotoolkit/selection/Selector';
 import {AnchorType} from '@int/geotoolkit/util/AnchorType';
@@ -34,7 +34,7 @@ import {LogAbstractVisual} from '@int/geotoolkit/welllog/LogAbstractVisual';
 import {WellLogWidget} from '@int/geotoolkit/welllog/widgets/WellLogWidget';
 import {CompositeLogCurve} from '@int/geotoolkit/welllog/CompositeLogCurve';
 import {AdaptiveLogCurveVisualHeader} from '@int/geotoolkit/welllog/header/AdaptiveLogCurveVisualHeader';
-import {LogAxisVisualHeader, HeaderType} from '@int/geotoolkit/welllog/header/LogAxisVisualHeader';
+import {HeaderType, LogAxisVisualHeader} from '@int/geotoolkit/welllog/header/LogAxisVisualHeader';
 import {LogAxis} from '@int/geotoolkit/welllog/LogAxis';
 import {FillType as LogFillType} from '@int/geotoolkit/welllog/LogFill';
 import {DataBindingRegistry} from '@int/geotoolkit/data/DataBindingRegistry';
@@ -42,18 +42,26 @@ import {Iterator} from '@int/geotoolkit/util/iterator';
 import {NodeOrder} from '@int/geotoolkit/scene/CompositeNode';
 import {LogBlock} from '@int/geotoolkit/welllog/LogBlock';
 import {Annotation} from '@int/geotoolkit/widgets/overlays/Annotation';
-import VisualZIndexDirections from './VisualZIndexDirections';
-import {AwsLasSource, BindingFunction} from './data/awslassource';
 import {Layer} from '@int/geotoolkit/scene/Layer';
-import {debounce} from "./utils/debounce.js";
-import {defaultTemplate} from './defaultWellLogTemplate';
 import {AnnotationLocation} from '@int/geotoolkit/layout/AnnotationLocation';
+import {SelectionEventArgs} from "@int/geotoolkit/controls/tools/SelectionEventArgs";
+import {AlignmentStyle} from "@int/geotoolkit/attributes/TextStyle";
+import {Node} from "@int/geotoolkit/scene/Node";
+import {NodeExport} from "@int/geotoolkit/scene/exports/NodeExport";
+import {Point} from "@int/geotoolkit/util/Point";
+import {IndexType} from "@int/geotoolkit/welllog/IndexType";
+import {LineStyle} from "@int/geotoolkit/attributes/LineStyle";
+import {LogAbstractData} from "@int/geotoolkit/welllog/data/LogAbstractData";
+import {VisualZIndexDirections} from './VisualZIndexDirections';
+import {AwsLasSource, BindingFunction} from './data/awslassource';
+import {debounce} from "./utils/debounce";
+import {defaultTemplate} from './defaultWellLogTemplate';
 
 const DEFAULT_HIGHLIGHT_CLASS = 'highlight';
 const SAVE_TEMPLATE_TIMEOUT = 2000;
 const DEFAULT_DARK_COLOR = '#757575';
 const DEFAULT_LIGHT_COLOR = 'rgba(255, 255, 255, 0.85)';
-const DEFAULT_CROSS_LINE_STYLE = {
+const DEFAULT_CROSS_LINE_STYLE: LineStyle.Options = {
     'color': DEFAULT_DARK_COLOR,
     'width': 1,
     'pattern': null,
@@ -92,12 +100,12 @@ const SIDEBAR_WIDTH = 200;
 const DEFAULT_TRACK_WIDTH = 200;
 
 const __date = new Date();
-const getDateTime = function (stamp) {
+const getDateTime = function (stamp: number) {
     __date.setTime(stamp);
     return __date.toLocaleString();
 };
 
-const __formatTooltip = function (logCurve, pt) {
+const __formatTooltip = function (logCurve: LogCurve, pt?: Point) {
     if (pt == null) {
         return 'Name: ' + logCurve.getName() + '<br>' +
             'Min :' + logCurve.getMinimumNormalizationLimit() + '<br>' +
@@ -147,27 +155,49 @@ const widgetCssStyle = {
     ].join('')
 };
 
+type CurveSelect = {
+    name: string;
+    selected: boolean;
+};
+type Options = {
+    host: HTMLDivElement;
+    canvas: HTMLCanvasElement;
+    data: AwsLasSource;
+    template: HTMLInputElement;
+};
+
 export class LogDisplay {
-    constructor (options) {
+    private _host: HTMLDivElement;
+    private _canvas: HTMLCanvasElement;
+    private _data: AwsLasSource;
+    private _template: HTMLInputElement;
+    private _selectedCurve: LogCurve = null;
+    private _selectedTrack: LogTrack = null;
+    private _selectedIndexTrack: LogAxisVisualHeader = null;
+    private _tracksCountWithoutIndexTracks: number = null;
+    private _oldTrackIndex: number = -1;
+    private _resetScaleFactor = 1.0;
+    private _sidebarIsDisplayed = false;
+    private _hasHover = false;
+    private _hasHighlight = false;
+    private _canLoadData = false;
+    private _curvesList: CurveSelect[] = [];
+    private _selectedCurves: CurveSelect[] = [];
+    private _curveBinding: BindingFunction = new BindingFunction();
+    private _topsLayer = new Layer();
+    private _widget: WellLogWidget;
+    private _navigationWidget: WellLogWidget;
+    private _navigationTool: Navigation;
+    private _plot: Plot;
+    private _loadData: () => void;
+    private _onSelectEventHandler: (evt: SelectionEvents.onSelectionChanged, sender: Selection, eventArgs: SelectionEventArgs) => void;
+    private _onEmptySelectHandler: (evt: SelectionEvents.onSelectionChanged, sender: Selection, eventArgs: SelectionEventArgs) => void;
+    constructor (options: Options) {
         this._host = options.host;
         this._canvas = options.canvas;
         this._data = options.data;
         this._template = options.template;
 
-        this._selectedCurve = null;
-        this._selectedTrack = null;
-        this._selectedIndexTrack = null;
-        this._tracksCountWithoutIndexTracks = null;
-        this._oldTrackIndex = -1;
-        this._sidebarIsDisplayed = false;
-        this._resetScaleFactor = 1.0;
-        this._isVerticalOrientation = true;
-        this._hasHover = false;
-        this._hasHighlight = false;
-        this._curvesList = [];
-        this._selectedCurves = [];
-        this._curveBinding = new BindingFunction();
-        this._topsLayer = new Layer();
         this._widget = this.createWellLogWidget();
         this._navigationWidget = this.createNavigationWidget();
         this._navigationTool = new Navigation({
@@ -180,7 +210,7 @@ export class LogDisplay {
         this._navigationWidget.getTool().add(this._navigationTool);
 
         this._plot = new Plot({
-            'canvasElement': this._canvas,
+            'canvaselement': this._canvas,
             'root': new Group()
                 .setAutoModelLimitsMode(true)
                 .setLayout(new CssLayout())
@@ -198,8 +228,8 @@ export class LogDisplay {
                         'bottom': 5
                     })
                 ]),
-            'autoSize': false,
-            'autoRootBounds': true
+            'autosize': false,
+            'autorootbounds': true
         });
         this._plot.setSize(this._canvas.clientWidth, this._canvas.clientHeight);
         this._navigationWidget.fitToHeight();
@@ -212,8 +242,6 @@ export class LogDisplay {
 
         this._widget.on(Events.DepthRangeChanged, this.setDepthLimits.bind(this));
         this._widget.on(Events.VisibleDepthLimitsChanged, this.setVisibleDepthLimits.bind(this));
-
-        this._canLoadData = false;
         this._widget.on(Events.VisibleDepthLimitsChanged, this.loadData.bind(this));
 
         this._plot.getTool()
@@ -238,7 +266,7 @@ export class LogDisplay {
         return {depthLimits, step};
     }
 
-    set canLoadData(value) {
+    set canLoadData(value: boolean) {
         this._canLoadData = value;
     }
 
@@ -249,13 +277,13 @@ export class LogDisplay {
 
     /**
      * Configure headers for widget
-     * @param {module:geotoolkit/welllog/widgets/WellLogWidget~WellLogWidget} widget welllog widget
+     * @param {WellLogWidget} widget welllog widget
      */
-    configureHeaders (widget) {
+    configureHeaders (widget: WellLogWidget) {
         const headerProvider = widget.getHeaderContainer().getHeaderProvider();
 
         // configure Depth ant Time axis header
-        const logAxisVisualHeader = headerProvider.getHeaderProvider(LogAxis.getClassName());
+        const logAxisVisualHeader = headerProvider.getHeaderProvider(LogAxis.getClassName()) as LogAxisVisualHeader;
         logAxisVisualHeader.setHeaderType(HeaderType.Simple);
 
         // configure curve header
@@ -283,11 +311,11 @@ export class LogDisplay {
     dispose () {
         DataBindingRegistry.getInstance()
             .remove(this._curveBinding);
-        if (this.onSelectEventHandler != null) {
-            this._widget.getToolByName('pick').off(SelectionEvents.onSelectionChanged, this.onSelectEventHandler);
+        if (this._onSelectEventHandler != null) {
+            this._widget.getToolByName('pick').off(SelectionEvents.onSelectionChanged, this._onSelectEventHandler);
         }
-        if (this.onEmptySelectHandler != null) {
-            this._widget.getToolByName('pick').off(SelectionEvents.onSelectionChanged, this.onEmptySelectHandler);
+        if (this._onEmptySelectHandler != null) {
+            this._widget.getToolByName('pick').off(SelectionEvents.onSelectionChanged, this._onEmptySelectHandler);
         }
         if (this._plot) {
             this._plot.dispose();
@@ -319,7 +347,7 @@ export class LogDisplay {
             return null;
         }
         const range = this._data.getRange();
-        const wellLogWidget = new WellLogWidget({
+        const wellLogWidget: WellLogWidget = new WellLogWidget({
             'highlight': {
                 'cssclass': DEFAULT_HIGHLIGHT_CLASS
             },
@@ -341,9 +369,7 @@ export class LogDisplay {
                 }
             },
             'range': range,
-            'scrollable': true,
             'indent': 0,
-            'splitter': true,
             'header': {
                 'visible': true
             },
@@ -359,8 +385,8 @@ export class LogDisplay {
                 'border': {'visible': true}
             },
             'border': {'visible': true},
-            'indexType': 'md',
-            'indexUnit': 'ft',
+            'indextype': IndexType.Depth,
+            'indexunit': 'ft',
             'scroll': {
                 'headerverticalscroll': {
                     'size': 11,
@@ -404,7 +430,7 @@ export class LogDisplay {
         wellLogWidget.getTrackContainer().addLayer(this._topsLayer);
         this.configureHeaders(wellLogWidget);
         // Add data binding for curve
-        wellLogWidget.getDataBinding()
+        (wellLogWidget.getDataBinding() as DataBindingRegistry)
             .add(this._curveBinding);
         wellLogWidget.setData(this._data);
 
@@ -416,11 +442,6 @@ export class LogDisplay {
                 return isNaN(y) ? '' : y.toFixed(2);
             });
 
-        wellLogWidget.getToolByName('cursor-tracking')
-            .getToolByName('index-cross-hair')
-            .setLabelsTextConverter(AnnotationLocation.West, (x, y) => wellLogWidget.getIndexType() === 'time' ?
-                getDateTime(y) : (isNaN(y) ? '' : y.toFixed(2))
-            );
         const selector = new Selector();
         wellLogWidget.connectTool(new ToolTipTool({
             'layer': wellLogWidget,
@@ -431,13 +452,13 @@ export class LogDisplay {
                 if (nodes == null || nodes.length === 0) return '';
 
                 const visualHeaders = nodes.filter((node) => node instanceof LogVisualHeader &&
-                        node.getVisual() instanceof LogCurve);
-                if (visualHeaders != null && visualHeaders.length > 0 && visualHeaders[0].getVisual().getTrack()) {
-                    return __formatTooltip(visualHeaders[0].getVisual());
+                        node.getVisual() instanceof LogCurve) as LogVisualHeader[];
+                if (visualHeaders != null && visualHeaders.length > 0 && (visualHeaders[0].getVisual() as LogCurve).getTrack()) {
+                    return __formatTooltip(visualHeaders[0].getVisual() as LogCurve);
                 }
 
                 const logCurves = nodes.reverse()
-                    .filter((node) => node instanceof LogCurve);
+                    .filter((node) => node instanceof LogCurve) as LogCurve[];
                 if (logCurves != null && logCurves.length > 0 && logCurves[0].getTrack()) {
                     return __formatTooltip(logCurves[0], pt);
                 }
@@ -453,7 +474,7 @@ export class LogDisplay {
      * @param {function} callback callback function for event
      * @returns {null|LogDisplay}
      */
-    setToolDoubleClickCallback (toolName, callback) {
+    setToolDoubleClickCallback (toolName: string, callback: (selection: Node[]) => void) {
         if (this._widget == null || toolName == null || callback == null) {
             return null;
         }
@@ -482,18 +503,21 @@ export class LogDisplay {
 
     /**
      * Adds template to widget
-     * @param {module:geotoolkit/welllog/widgets/WellLogWidget~WellLogWidget} widget widget
-     * @param template template
-     * @returns {*}
      */
-    loadTemplate (template) {
+    loadTemplate (template: string) {
         if (this._widget != null && !this._widget.isDisposed()) {
             this._widget.loadTemplate(template);
         }
         this.calculateTracksCountWithoutIndexTrack();
     }
 
-    loadTops (topsData) {
+    loadTops (topsData: {
+        tops: {
+            color: string;
+            depth: number;
+            name: string;
+        }[]
+    }) {
         if (this._widget != null && !this._widget.isDisposed()) {
             const tops = topsData['tops'];
             this._topsLayer.clearChildren(true);
@@ -504,11 +528,11 @@ export class LogDisplay {
                 marker.setLineStyle({'color': top['color'], 'width': 2});
                 marker.setTextStyle({
                     'color': top['color'],
-                    'alignment': 'left',
+                    'alignment': AlignmentStyle.Left,
                     'font': '12px sans-serif'
                 });
                 marker.setNameLabel(top['name']);
-                marker.setDepthLabel(top['depth']);
+                marker.setDepthLabel(top['depth'].toString());
                 marker.setNameLabelPosition(AnchorType.TopCenter);
                 marker.setDepthLabelPosition(AnchorType.BottomCenter);
                 this._topsLayer.addChild(marker)
@@ -522,7 +546,7 @@ export class LogDisplay {
         // check if track container device size is smaller then widget
         const trackContainer = this._widget.getTrackContainer();
         const trackLimits = trackContainer.getVisibleDeviceLimits();
-        const availableSpace = trackContainer.getParent().getVisibleDeviceLimits();
+        const availableSpace = (trackContainer.getParent() as Group).getVisibleDeviceLimits();
         if (this._widget.getOrientation() === Orientation.Vertical) {
             if (availableSpace.getHeight() > (trackLimits.getHeight() + MathUtil.epsilon)) {
                 this._widget.fitToHeight();
@@ -603,7 +627,7 @@ export class LogDisplay {
      * @param {module:geotoolkit/welllog/data/LogAbstractData~LogAbstractData} curveData data for curve
      * @param {module:geotoolkit/welllog/LogTrack~logTrack} track track
      */
-    addCurveToTrack (curveData, track) {
+    addCurveToTrack (curveData: LogAbstractData, track: LogTrack) {
         const randomColor = ColorUtil.parseColor(ColorUtil.getRandomColorRgba(0.9, true));
 
         const logCurve = new CompositeLogCurve(curveData)
@@ -614,10 +638,8 @@ export class LogDisplay {
     }
     /**
      * Gets selected visual in all selection
-     * @param {module:geotoolkit/welllog/LogTrack|module:geotoolkit/welllog/header/LogVisualHeader~LogVisualHeader|module:geotoolkit/welllog/LogAxis~LogAxis} selection selection
-     * @returns {module:geotoolkit/welllog/LogTrack|module:geotoolkit/welllog/LogAbstractVisual~LogAbstractVisual|module:geotoolkit/welllog/header/LogVisualHeader~LogVisualHeader|null}
      */
-    getSelectedVisual (selection) {
+    getSelectedVisual (selection: Node[] | Annotation[]) {
         let visual = null;
 
         for (let i = selection.length - 1; i >= 0; i--) {
@@ -643,12 +665,12 @@ export class LogDisplay {
      * @param {module:geotoolkit/welllog/LogTrack|module:geotoolkit/welllog/LogAbstractVisual~LogAbstractVisual|module:geotoolkit/welllog/header/LogVisualHeader~LogVisualHeader|null} selectedVisual selected visual
      * @returns {?string} dialog name
      */
-    getPropertyDialogName (selectedVisual) {
+    getPropertyDialogName (selectedVisual: Node | Annotation) {
         let dialogName = null;
         if (selectedVisual instanceof LogMarker) {
             dialogName = 'Marker';
         }
-        if (selectedVisual instanceof LogCurve) {
+        if (selectedVisual instanceof CompositeLogCurve) {
             let leftLogRef = null;
             let rightLogRef = null;
             if (selectedVisual.getLeftFill() == null) {
@@ -662,13 +684,14 @@ export class LogDisplay {
                 selectedVisual.getRightFill().setVisible(false).setFillType(LogFillType.Left);
             }
 
-            if (selectedVisual.getTrack() != null) {// needs to add references line to the track as well
-                const idx = selectedVisual.getTrack().indexOfChild(selectedVisual);
+            const track = selectedVisual.getTrack();
+            if (track instanceof LogTrack) {// needs to add references line to the track as well
+                const idx = track.indexOfChild(selectedVisual);
                 if (leftLogRef !== null) {
-                    selectedVisual.getTrack().insertChild(idx + 1, leftLogRef);
+                    track.insertChild(idx + 1, leftLogRef);
                 }
                 if (rightLogRef !== null) {
-                    selectedVisual.getTrack().insertChild(idx + 2, rightLogRef);
+                    track.insertChild(idx + 2, rightLogRef);
                 }
             }
             dialogName = 'Curve';
@@ -683,14 +706,6 @@ export class LogDisplay {
             dialogName = 'Annotation';
         }
         return dialogName;
-    }
-
-    /**
-     * Gets width of sidebar
-     * @returns {number} sidebar width
-     */
-    getSideBarWidth () {
-        return SIDEBAR_WIDTH;
     }
 
     /**
@@ -717,27 +732,18 @@ export class LogDisplay {
 
     /**
      * Adds track to widget
-     * @param {string} type track type
-     * @param {geotoolkit/welllog/TrackDirection} direction track direction
-     * @returns {?geotoolkit.welllog.LogTrack} track
+     * @param {TrackType} type track type
+     * @param {TrackDirection} direction track direction
+     * @returns {?LogTrack} track
      */
-    addTrack (type, direction) {
+    addTrack (type: TrackType, direction: TrackDirection) {
         if (this._widget == null) {
             return null;
         }
         let width = 0;
-        let trackType;
-        if (type === 'index') {
-            trackType = TrackType.IndexTrack;
+        if (type === TrackType.IndexTrack) {
             width = (this._widget.getTracksCount() === 0) ? 70 : 50;
-        } else if (type === 'log') {
-            trackType = TrackType.LogTrack;
-            width = DEFAULT_TRACK_WIDTH;
-        } else if (type === 'tangential') {
-            trackType = TrackType.TangentialTrack;
-            width = DEFAULT_TRACK_WIDTH;
         } else {
-            trackType = TrackType.LinearTrack;
             width = DEFAULT_TRACK_WIDTH;
         }
         let track;
@@ -745,14 +751,14 @@ export class LogDisplay {
         if (direction !== TrackDirection.Last && selectedTracks && selectedTracks.length > 0) {
             const index = this._widget.getTrackIndex(selectedTracks[selectedTracks.length - 1]) + 1;
             track = this._widget.insertTrack(index, {
-                'type': trackType, 'width': width
+                'type': type, 'width': width
             });
         } else {
             track = this._widget.addTrack({
-                'type': trackType, 'width': width
+                'type': type, 'width': width
             });
         }
-        if (type !== 'index') {
+        if (type !== TrackType.IndexTrack) {
             track.setName('Track' + ' # ' + ++this._tracksCountWithoutIndexTracks);
             this._widget.getTrackHeader(track).setVisibleTrackTitle(true);
         }
@@ -777,7 +783,7 @@ export class LogDisplay {
         let visualDeleted = false;
         currentSelection.forEach((visual) => {
             if (visual instanceof LogAbstractVisual) {
-                const track = visual.getParent();
+                const track = visual.getParent() as LogTrack;
                 if (track == null) {
                     return;
                 }
@@ -803,7 +809,7 @@ export class LogDisplay {
         selector.setSelection([]);
     }
 
-    setDragAndDrop (enabled) {
+    setDragAndDrop (enabled: boolean) {
         if (this._widget == null) {
             return;
         }
@@ -837,23 +843,23 @@ export class LogDisplay {
         }
     }
 
-    exportToPDF (settings) {
+    exportToPDF (settings: {printSettings: NodeExport.PrintDocumentSettings}): string {
         const limits = this._widget.getDepthLimits();
         const compression = BrowserInfo.isFirefox() !== true;
         let warningMessage = null;
         this._widget.exportToPdf({
             'output': 'Widget',
-            'printSettings': settings['printSettings'],
+            'printsettings': settings['printSettings'],
             'limits': {
                 'start': limits.getLow(),
                 'end': limits.getHigh()
             },
             'header': new HeaderComponent(600, 20, 'PDF Output'),
             'footer': new FooterComponent(600, 20),
-            'imageCompression': {
+            'imagecompression': {
                 'mode': ImageCompression.NONE
             },
-            'streamCompression': compression
+            'streamcompression': compression
         }).catch((fail) => {
             warningMessage = fail.message;
         });
@@ -880,12 +886,6 @@ export class LogDisplay {
             const template = this._widget.saveTemplate();
             const data = new Blob([template], {type: 'text/plain'});
 
-            // IE SUPPORT
-            if (window.navigator.msSaveOrOpenBlob) {
-                window.navigator.msSaveOrOpenBlob(data, fileName);
-                return;
-            }
-
             // MOZ CHROME SUPPORT
             const file = window.URL.createObjectURL(data);
 
@@ -909,7 +909,7 @@ export class LogDisplay {
      * @param {file} file file
      * @param {function} callback function callback
      */
-    getAsText (file, callback) {
+    getAsText (file: File, callback: (event: ProgressEvent) => void) {
         const reader = new FileReader();
         reader.readAsText(file, 'utf-8');
 
@@ -939,7 +939,7 @@ export class LogDisplay {
                         if (event == null) {
                             return;
                         }
-                        const template = event.target.result;
+                        const template = (event.target as FileReader).result as string;
                         JSON.parse(template);
                         this._widget.loadTemplate(template);
                        this.calculateTracksCountWithoutIndexTrack();
@@ -1005,7 +1005,7 @@ export class LogDisplay {
      * @param {boolean} visible navigation visibility
      * @returns {this}
      */
-    setNavigationVisible (visible) {
+    setNavigationVisible (visible: boolean) {
         this._navigationWidget.setVisible(visible);
         if (visible) {
             this._navigationWidget.fitToHeight();
@@ -1016,21 +1016,15 @@ export class LogDisplay {
             'right': 0,
             'bottom': this._widget.getOrientation() === Orientation.Horizontal && this._navigationWidget.getVisible() ? 50 : 0
         });
-        this._widget.getRoot().updateLayout();
+        (this._widget.getRoot() as Group).updateLayout();
         return this;
-    }
-
-    setCursorToolEnabled (enabled) {
-        this._widget.getToolByName('cursor-tracking').setEnabled(enabled);
-        this._widget.getToolByName('cross-hair').setEnabled(!enabled);
-        this._widget.getToolByName('tooltip').setEnabled(!enabled);
     }
 
     /**
      * Sets sidebar visible
      * @param {boolean} visibility sidebar visibility
      */
-    setSidebarVisible (visibility) {
+    setSidebarVisible (visibility: boolean) {
         this._sidebarIsDisplayed = visibility;
         this.resizePlot();
     }
@@ -1050,7 +1044,7 @@ export class LogDisplay {
      * Gets the drag position
      * @returns {{x: number, y: number}} position
      */
-    getDragPosition () {
+    getDragPosition (event: DragEvent) {
         const rect = this._plot.getBoundingClientRect();
         return {
             x: event.pageX - rect.left,
@@ -1065,7 +1059,7 @@ export class LogDisplay {
     updateCurvesList () {
         this._curvesList = [];
         if (this._widget != null && this._widget.getData() != null) {
-            const data = this._widget.getData();
+            const data = this._widget.getData() as AwsLasSource;
             const curves = data.getCurves();
             for (let i = 0; i < curves.length; i++) {
                 this._curvesList.push({
@@ -1093,7 +1087,7 @@ export class LogDisplay {
      * Start drag curve
      * @param {object} event draggable curve event
      */
-    startDrag (event) {
+    startDrag (event: Event & {oldIndex: number}) {
         const index = event.oldIndex;
         this.calculateSelectedCurves();
         if (this._selectedCurves.length === 0) {
@@ -1106,8 +1100,8 @@ export class LogDisplay {
      * End drag (drop) curve
      * @param {object} event event
      */
-    async endDrag (event) {
-        const data = this._widget.getData();
+    async endDrag (event: Event & {originalEvent: DragEvent}) {
+        const data = this._widget.getData() as AwsLasSource;
         const position = this.getDragPosition(event.originalEvent);
 
         if (position.x < 0 || position.y < 0) {
@@ -1138,7 +1132,7 @@ export class LogDisplay {
      * Drag curve over widget and highlight it
      * @param {object} event event
      */
-    drag (event) {
+    drag (event: DragEvent) {
         const position = this.getDragPosition(event);
         if (position.x < 0 || position.y < 0) {
             return;
@@ -1162,7 +1156,7 @@ export class LogDisplay {
      * Toggle 'select' curve in curves list
      * @param {number} index selected curve index
      */
-    toggleCurveSelect (index) {
+    toggleCurveSelect (index: number) {
         this._curvesList[index].selected = !this._curvesList[index].selected;
         this.calculateSelectedCurves();
     }
@@ -1183,47 +1177,47 @@ export class LogDisplay {
      * Add event on select.
      * @param {function} callback Callback function
      */
-    onSelect (callback) {
-        if (this.onSelectEventHandler != null) {
-            this._widget.getToolByName('pick').off(SelectionEvents.onSelectionChanged, this.onSelectEventHandler);
+    onSelect (callback: () => void) {
+        if (this._onSelectEventHandler != null) {
+            this._widget.getToolByName('pick').off(SelectionEvents.onSelectionChanged, this._onSelectEventHandler);
         }
-        this.onSelectEventHandler = (event, sender, eventArgs) => {
+        this._onSelectEventHandler = (event, sender, eventArgs) => {
             if (eventArgs.getSelection().length === 0) {
                 return;
             }
-            callback(sender, eventArgs);
+            callback();
         };
-        this._widget.getToolByName('pick').on(SelectionEvents.onSelectionChanged, this.onSelectEventHandler);
+        this._widget.getToolByName('pick').on(SelectionEvents.onSelectionChanged, this._onSelectEventHandler);
     }
 
     /**
      * Event for empty select
      * @param {function} callback Callback function
      */
-    onEmptySelect (callback) {
-        if (this.onEmptySelectHandler != null) {
-            this._widget.getToolByName('pick').off(SelectionEvents.onSelectionChanged, this.onEmptySelectHandler);
+    onEmptySelect (callback: () => void) {
+        if (this._onEmptySelectHandler != null) {
+            this._widget.getToolByName('pick').off(SelectionEvents.onSelectionChanged, this._onEmptySelectHandler);
         }
-        this.onEmptySelectHandler = (event, sender, eventArgs) => {
+        this._onEmptySelectHandler = (event, sender, eventArgs) => {
             if (eventArgs.getSelection().length !== 0) {
                 return;
             }
-            callback(sender, eventArgs);
+            callback();
         };
-        this._widget.getToolByName('pick').on(SelectionEvents.onSelectionChanged, this.onEmptySelectHandler);
+        this._widget.getToolByName('pick').on(SelectionEvents.onSelectionChanged, this._onEmptySelectHandler);
     }
 
-    moveSelectedVisual (direction) {
+    moveSelectedVisual (direction: VisualZIndexDirections) {
         const visual = this._widget.getSelectedVisuals().pop();
         if (visual instanceof LogAbstractVisual) {
-            const track = visual.getTrack();
+            const track = visual.getTrack() as LogTrack;
             const idx = this.getNewVisualIndexAndOrder(visual, track, direction);
             if (idx === null) return;
             track.changeChildOrder(visual, idx.order, track.getChild(idx.index));
         }
     }
 
-    getNewVisualIndexAndOrder (currentVisual, track, direction) {
+    getNewVisualIndexAndOrder (currentVisual: LogAbstractVisual, track: LogTrack, direction: VisualZIndexDirections) {
         const idx = track.indexOfChild(currentVisual);
         const children = Iterator.toArray(track.getChildren());
         let i;
@@ -1276,13 +1270,13 @@ export class LogDisplay {
         return null;
     }
 
-    isRegularVisual (visual) {
+    isRegularVisual (visual: Node) {
         return (visual instanceof LogAbstractVisual &&
             !(visual instanceof LogReferenceLine) &&
             !(visual instanceof LogBlock));
     }
 
-    savePseudoClasses (visual) {
+    savePseudoClasses (visual: LogAbstractVisual | LogAxisVisualHeader | LogTrack) {
         if (typeof visual.hasCssClass !== 'function') {
             return;
         }
@@ -1295,7 +1289,7 @@ export class LogDisplay {
         return;
     }
 
-    restorePseudoClasses (visual) {
+    restorePseudoClasses (visual: LogAbstractVisual | LogAxisVisualHeader | LogTrack) {
         if (this._hasHover) {
             visual.addCssClass(PseudoClass.Hover);
         }

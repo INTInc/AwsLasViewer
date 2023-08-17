@@ -1,11 +1,6 @@
-import 'core-js/stable/object';
-import 'core-js/stable/symbol';
-import 'core-js/stable/array/from';
-import 'core-js/stable/url';
-
 import Vue from 'vue';
 import Vuex from 'vuex';
-import Vuetify from 'vuetify/lib';
+import Vuetify from 'vuetify';
 
 import INTViewer from './main.vue';
 
@@ -17,7 +12,7 @@ import '@fortawesome/fontawesome-free/css/all.min.css';
 Vue.use(Vuetify);
 Vue.use(Vuex);
 
-const store = new Vuex.Store();
+const store = new Vuex.Store({});
 
 new Vue({
     el: '#app',

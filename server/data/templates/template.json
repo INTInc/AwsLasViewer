@@ -599,10 +599,7 @@
 				"visuals": [
 					{
 						"cg_type": "compositecurve",
-						"id": {
-							"id": "GR",
-							"wellId": "wellId"
-						},
+						"id": "GR",
 						"name": "GR",
 						"display_mode": [
 							"line",
@@ -1476,10 +1473,7 @@
 				"visuals": [
 					{
 						"cg_type": "compositecurve",
-						"id": {
-							"id": "CALI",
-							"wellId": "wellId"
-						},
+						"id": "CALI",
 						"name": "CALI",
 						"display_mode": [
 							"line",
@@ -2300,10 +2294,7 @@
 				"visuals": [
 					{
 						"cg_type": "compositecurve",
-						"id": {
-							"id": "DLT",
-							"wellId": "wellId"
-						},
+						"id": "DLT",
 						"name": "DLT",
 						"display_mode": [
 							"line",

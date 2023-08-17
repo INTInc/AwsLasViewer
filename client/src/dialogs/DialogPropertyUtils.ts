@@ -29,6 +29,9 @@ import {FILL_PATTERNS} from './uischemas';
 import {Annotation} from '@int/geotoolkit/widgets/overlays/Annotation';
 import {isInstanceOf} from '@int/geotoolkit/base';
 import {Node} from '@int/geotoolkit/scene/Node';
+import {LogAbstractVisual} from "@int/geotoolkit/welllog/LogAbstractVisual";
+import {LogTrack} from "@int/geotoolkit/welllog/LogTrack";
+import {LogVisualHeader} from "@int/geotoolkit/welllog/header/LogVisualHeader";
 
 const painterLabels = {
     [SquarePainter.getClassName()]: 'Square',
@@ -41,7 +44,7 @@ const painterLabels = {
     [CrossPainter.getClassName()]: 'Cross'
 };
 
-function modify (schema, patch) {
+function modify (schema: any, patch: any) {
     for (const id in patch) {
         if (schema['id'] === id || schema['$id'] === id) {
             for (const key in patch[id]) {
@@ -62,7 +65,7 @@ function modify (schema, patch) {
     return schema;
 }
 
-function createAjv (patch) {
+function createAjv (patch: any) {
     let schema = JSON.parse(JSON.stringify(schemas));
     patch = JSON.parse(JSON.stringify(patch));
     if (patch) {
@@ -249,7 +252,7 @@ const getAjv = function () {
 const registry = new UIRegistry();
 WellLogRegistry.register(registry);
 
-const getNodeProps = function (node, schema) {
+const getNodeProps = function (node: LogAbstractVisual | LogTrack | LogVisualHeader | Annotation, schema: any) {
     if (node instanceof LogCurve && !node.getSymbol()) {
         node.setSymbol(new SymbolShape({
             'width': 10,
@@ -297,7 +300,7 @@ const getNodeProps = function (node, schema) {
     return props;
 };
 
-const setNodeProps = function (node, props) {
+const setNodeProps = function (node: LogAbstractVisual | LogTrack | LogVisualHeader | Annotation, props: any) {
     props = cloneDeep(props);
     if (node instanceof CompositeLogCurve) {
         props.microposleft = props.microposleft / 100;

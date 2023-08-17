@@ -6,6 +6,9 @@ const TOOLBAR_ID = 'int-toolbar';
 // TODO: Make parent component e.g <FullHeightComponent /> responsible for correct size of its children
 
 export default class PlotHostHeightUtil {
+    private _appHeaderHeight: number;
+    private _demoTitleHeight: number;
+    private _toolbarHeight: number;
     calculateHeights () {
         const navigationDiv = document.getElementById(NAV_ID);
         const demoTitleDiv = document.getElementsByClassName(TITLE_ID)[0];
